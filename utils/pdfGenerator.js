@@ -139,23 +139,20 @@ const generateOfferPDF = async (offerData) => {
 
     logger.info("🟩 [10] Launching Puppeteer...");
 
-    // ======= CHANGE: use CHROME_PATH from environment as executablePath if provided =======
-    const launchOptions = {
-      headless: true,
-      args: [
-        "--no-sandbox",
-        "--disable-setuid-sandbox",
-        "--disable-dev-shm-usage",
-        "--disable-gpu",
-        "--no-zygote",
-        "--single-process",
-      ],
-    };
-    if (process.env.CHROME_PATH) {
-      launchOptions.executablePath = process.env.CHROME_PATH;
-      logger.info(`Using CHROME_PATH executable: ${process.env.CHROME_PATH}`);
-    }
-    const browser = await puppeteer.launch(launchOptions);
+const browser = await puppeteer.launch({
+  headless: true,        // or "new"
+  args: [
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-dev-shm-usage",
+    "--disable-gpu",
+    "--no-zygote",
+    "--single-process",
+  ],
+});
+
+logger.info("✅ [11] Puppeteer launched successfully");
+
     // ====================================================================================
 
     logger.info("✅ [11] Puppeteer launched successfully");
