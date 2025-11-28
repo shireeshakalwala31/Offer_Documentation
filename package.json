@@ -27,7 +27,8 @@
     "pdfkit": "^0.17.2",
     "puppeteer": "^20.9.0",
     "uuid": "^13.0.0",
-    "winston": "^3.18.3"
+    "winston": "^3.18.3",
+    "wrap-ansi": "^9.0.2"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"
