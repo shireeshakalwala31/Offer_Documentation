@@ -1131,12 +1131,24 @@ exports.downloadCandidatePDF = async (req, res) => {
 
     doc.pipe(res);
 
-    // Helper functions for well-formatted tables
+    // ------------------------------------------------------------------
+    // Helper values
+    // ------------------------------------------------------------------
     const pageWidth = doc.page.width;
     const left = doc.page.margins.left;
     const right = doc.page.margins.right;
     const usableWidth = pageWidth - left - right;
     const bottomY = doc.page.height - doc.page.margins.bottom;
+
+    const safeDecrypt = (val) => {
+      if (!val) return "";
+      try {
+        return decryptText(val);
+      } catch (e) {
+        console.error("Decrypt error:", e.message);
+        return "";
+      }
+    };
 
     function ensureSpace(h) {
       if (doc.y + h > bottomY) {
@@ -1154,7 +1166,12 @@ exports.downloadCandidatePDF = async (req, res) => {
       doc.restore();
       doc.fillColor("#000").font("Helvetica-Bold").fontSize(14);
       doc.text(title, x + 8, y + 6);
-      doc.moveTo(x, y + headerHeight).lineTo(x + usableWidth, y + headerHeight).strokeColor("#d0d7e2").lineWidth(0.8).stroke();
+      doc
+        .moveTo(x, y + headerHeight)
+        .lineTo(x + usableWidth, y + headerHeight)
+        .strokeColor("#d0d7e2")
+        .lineWidth(0.8)
+        .stroke();
       doc.y = y + headerHeight + 6;
       doc.fillColor("#000").font("Helvetica");
     }
@@ -1162,9 +1179,13 @@ exports.downloadCandidatePDF = async (req, res) => {
     function buildDownloadUrl(sectionKey, fileName) {
       const baseUrl =
         process.env.PUBLIC_WEB_URL ||
-        "https://offer-documentation.onrender.com";
-      const cid = candidate.draftId || candidate._id;
-      return `${baseUrl}/api/candidate/${cid}/${sectionKey}/${encodeURIComponent(
+        "https://offer-documentation.onrender.com"; // your web/API root
+
+      // Use _id consistently for file routes
+      const cid = candidate._id;
+
+      // IMPORTANT: include /file/ in the path to match your API
+      return `${baseUrl}/api/candidate/${cid}/file/${sectionKey}/${encodeURIComponent(
         fileName
       )}`;
     }
@@ -1199,7 +1220,7 @@ exports.downloadCandidatePDF = async (req, res) => {
         const x = left;
         const y = doc.y;
 
-        // Draw cell borders
+        // Borders
         doc
           .save()
           .lineWidth(0.5)
@@ -1210,12 +1231,13 @@ exports.downloadCandidatePDF = async (req, res) => {
           .stroke()
           .restore();
 
-        // Draw texts
+        // Label
         doc.font("Helvetica-Bold").fillColor("#111");
         doc.text(String(label), x + pad, y + pad, {
           width: col1Width - pad * 2,
         });
 
+        // Value (with optional link)
         doc.font("Helvetica").fillColor("#000");
         if (valueLink) {
           doc
@@ -1239,59 +1261,109 @@ exports.downloadCandidatePDF = async (req, res) => {
     }
 
     function attachmentValue(att, sectionKey) {
-      if (!att || !att.base64) return "None";
+      // FIX: don't depend on base64; check fileName
+      if (!att || !att.fileName) return "None";
       const fileName = att.fileName || "Attachment";
       return { text: fileName, link: buildDownloadUrl(sectionKey, fileName) };
     }
 
-    // ---------------- BASIC INFORMATION (TABLE) ----------------
-    // ---------------- BASIC INFORMATION (TABLE) ----------------
-drawSectionHeader("Basic Information");
+    // ------------------------------------------------------------------
+    // BASIC INFORMATION
+    // ------------------------------------------------------------------
+    drawSectionHeader("Basic Information");
 
-const b = candidate.basicInfo || {};
+    const b = candidate.basicInfo || candidate.basic || {};
 
-// Correctly map field names from DB
-const aadharNum = b.aadharEncrypted
-  ? decryptText(b.aadharEncrypted)
-  : b.aadharNumber || b.aadhar_number || "";
+    // Try decrypt first, then fall back to multiple possible keys
+    const aadharNum =
+      safeDecrypt(b.aadharEncrypted) ||
+      b.aadharNumber ||
+      b.aadhar_number ||
+      b.aadharNo ||
+      b.aadhar_no ||
+      candidate.aadharNumber ||
+      candidate.aadharNo ||
+      "";
 
-const panNum = b.panEncrypted
-  ? decryptText(b.panEncrypted)
-  : b.panNumber || b.pan_number || "";
+    const panNum =
+      safeDecrypt(b.panEncrypted) ||
+      b.panNumber ||
+      b.pan_number ||
+      b.panNo ||
+      b.pan_no ||
+      candidate.panNumber ||
+      candidate.panNo ||
+      "";
 
-drawKeyValueTable([
-  { label: "Salutation", value: b.salutation || "" },
-  { label: "Name", value: `${b.firstName || ""} ${b.lastName || ""}`.trim() },
-  { label: "Email", value: b.email || "" },
-  { label: "Phone", value: `${b.countryCode || ""} ${b.phoneNumber || ""}`.trim() },
-  { label: "Father Name", value: b.fatherName || "" },
-  { label: "Gender", value: b.gender || "" },
-  { label: "Aadhar Number", value: aadharNum || "Not Provided" },
-  { label: "PAN Number", value: panNum || "Not Provided" },
-  { label: "Aadhar Attachment", value: attachmentValue(b.aadharAttachment, "basicInfo") },
-  { label: "PAN Attachment", value: attachmentValue(b.panAttachment, "basicInfo") },
-]);
+    drawKeyValueTable([
+      { label: "Salutation", value: b.salutation || "" },
+      {
+        label: "Name",
+        value: `${b.firstName || ""} ${b.lastName || ""}`.trim(),
+      },
+      { label: "Email", value: b.email || "" },
+      {
+        label: "Phone",
+        value: `${b.countryCode || ""} ${b.phoneNumber || ""}`.trim(),
+      },
+      { label: "Father Name", value: b.fatherName || "" },
+      { label: "Gender", value: b.gender || "" },
+      { label: "Aadhar Number", value: aadharNum || "Not Provided" },
+      { label: "PAN Number", value: panNum || "Not Provided" },
+      {
+        label: "Aadhar Attachment",
+        value: attachmentValue(b.aadharAttachment, "basicInfo"),
+      },
+      {
+        label: "PAN Attachment",
+        value: attachmentValue(b.panAttachment, "basicInfo"),
+      },
+    ]);
 
-
-
-    // ---------------- QUALIFICATION DETAILS (TABLES) ----------------
+    // ------------------------------------------------------------------
+    // QUALIFICATION DETAILS
+    // ------------------------------------------------------------------
     drawSectionHeader("Qualification Details");
-    const qualification = candidate.qualification || {};
+
+    const qualification =
+      candidate.qualification || candidate.qualifications || {};
+
     const eduArray = Array.isArray(qualification.education)
       ? qualification.education
+      : Array.isArray(candidate.education)
+      ? candidate.education
+      : Array.isArray(qualification)
+      ? qualification
       : [];
 
     if (eduArray.length === 0) {
-      drawKeyValueTable([{ label: "Details", value: "No qualification records" }]);
+      drawKeyValueTable([
+        { label: "Details", value: "No qualification records" },
+      ]);
     } else {
       eduArray.forEach((edu, index) => {
         ensureSpace(26);
         doc.font("Helvetica-Bold").fontSize(12).text(`Education ${index + 1}`);
         doc.moveDown(0.2);
-        const degree = edu.qualification || "";
-        const specialization = edu.specialization || edu.subbranch || "";
-        const percentage = edu.percentage || "";
-        const passingYear = edu.passingYear || edu.yearPassing || "";
+
+        const degree =
+          edu.qualification || edu.degree || edu.course || edu.std || "";
+        const specialization =
+          edu.specialization ||
+          edu.subbranch ||
+          edu.spec ||
+          edu.branch ||
+          "";
+        const percentage =
+          edu.percentage || edu.percent || edu.marks || edu.score || "";
+        const passingYear =
+          edu.passingYear ||
+          edu.yearPassing ||
+          edu.yearOfPassing ||
+          edu.passing_year ||
+          edu.year ||
+          "";
+
         drawKeyValueTable([
           { label: "Degree", value: degree },
           { label: "Specialization", value: specialization },
@@ -1299,105 +1371,170 @@ drawKeyValueTable([
           { label: "Passing Year", value: String(passingYear) },
           {
             label: "Certificate",
-            value: attachmentValue(edu.certificateAttachment, "qualification"),
+            value: attachmentValue(
+              edu.certificateAttachment || edu.certificate || edu.attachment,
+              "qualification"
+            ),
           },
         ]);
       });
     }
 
-    // ---------------- OFFER DETAILS (TABLE) ----------------
+    // ------------------------------------------------------------------
+    // OFFER DETAILS
+    // ------------------------------------------------------------------
     drawSectionHeader("Offer Details");
-    const offer = candidate.offerDetails || {};
+
+    const offer =
+      candidate.offerDetails || candidate.offer || candidate.offerInfo || {};
+
+    const offerDate =
+      offer.offerDate || offer.dateOfOffer || offer.offer_date || "";
+    const joiningDate =
+      offer.dateOfJoining || offer.joiningDate || offer.doj || "";
+    const empId =
+      offer.employeeId || offer.empId || offer.employeeCode || "";
+
     drawKeyValueTable([
-      { label: "Offer Date", value: offer.offerDate || "" },
-      { label: "Date of Joining", value: offer.dateOfJoining || "" },
-      { label: "Employee ID", value: offer.employeeId || "" },
+      { label: "Offer Date", value: offerDate },
+      { label: "Date of Joining", value: joiningDate },
+      { label: "Employee ID", value: empId },
       { label: "Interview Remarks", value: offer.interviewRemarks || "" },
       {
         label: "Offer Letter",
-        value: attachmentValue(offer.offerLetterAttachment, "offerDetails"),
+        value: attachmentValue(
+          offer.offerLetterAttachment || offer.offerLetter,
+          "offerDetails"
+        ),
       },
     ]);
 
-    // ---------------- BANK DETAILS (TABLE) ----------------
+    // ------------------------------------------------------------------
+    // BANK DETAILS
+    // ------------------------------------------------------------------
     drawSectionHeader("Bank Details");
-    const bank = candidate.bankDetails || {};
-    const accountNumber = bank.accountEncrypted
-      ? decryptText(bank.accountEncrypted)
-      : null;
-    const ifsc = bank.ifscEncrypted ? decryptText(bank.ifscEncrypted) : null;
+
+    const bank =
+      candidate.bankDetails || candidate.bank || candidate.bankInfo || {};
+
+    const accountNumber =
+      safeDecrypt(bank.accountEncrypted) ||
+      bank.accountNumber ||
+      bank.accNumber ||
+      bank.account_no ||
+      "";
+
+    const ifsc =
+      safeDecrypt(bank.ifscEncrypted) ||
+      bank.ifsc ||
+      bank.ifscCode ||
+      bank.ifsc_code ||
+      "";
 
     drawKeyValueTable([
       { label: "Bank Name", value: bank.bankName || "" },
-      { label: "Branch", value: bank.branchName || "" },
+      { label: "Branch", value: bank.branchName || bank.branch || "" },
       { label: "Account Number", value: accountNumber || "Not Available" },
       { label: "IFSC Code", value: ifsc || "Not Available" },
       {
         label: "Bank Proof",
-        value: attachmentValue(bank.bankAttachment, "bankDetails"),
+        value: attachmentValue(
+          bank.bankAttachment || bank.attachment || bank.proofAttachment,
+          "bankDetails"
+        ),
       },
     ]);
 
-    // ---------------- EMPLOYMENT DETAILS (TABLES) ----------------
-   // ---------------- EMPLOYMENT DETAILS (TABLES) ----------------
-drawSectionHeader("Employment Details");
-const emp = candidate.employmentDetails || {};
-const empType = emp.employmentType || emp.experienceType || "";
+    // ------------------------------------------------------------------
+    // EMPLOYMENT DETAILS
+    // ------------------------------------------------------------------
+    drawSectionHeader("Employment Details");
 
-if (empType === "Fresher") {
-  drawKeyValueTable([
-    { label: "Employment Type", value: empType },
-    { label: "Role Hired", value: emp.hiredRole || "" },
-    { label: "Offered CTC", value: emp.fresherCtc || "" },
-    { label: "General Remarks", value: emp.generalRemarks || "" },
-    {
-      label: "Offer Letter",
-      value: attachmentValue(emp.offerLetterAttachment, "employmentDetails"),
-    },
-  ]);
-} else {
-  const exp = Array.isArray(emp.experiences) ? emp.experiences[0] : undefined;
+    const emp =
+      candidate.employmentDetails ||
+      candidate.employment ||
+      candidate.employeeDetails ||
+      {};
 
-  if (exp) {
-    drawKeyValueTable([
-      { label: "Employment Type", value: empType || "Experience" },
-      { label: "Company", value: exp.companyName || "" },
-      {
-        label: "Duration",
-        value: `${exp.durationFrom || ""} → ${exp.durationTo || ""}`,
-      },
-      { label: "Joined CTC", value: exp.joinedCtc || "" },
-      { label: "Offered CTC", value: exp.offeredCtc || "" },
-      { label: "Reason for Leaving", value: exp.reasonForLeaving || "" },
-      { label: "General Remarks", value: exp.generalRemarks || "" },
-      {
-        label: "Offer Letter",
-        value: attachmentValue(exp.offerLetterAttachment, "employmentDetails"),
-      },
-    ]);
-
-    const pays = Array.isArray(exp.payslipAttachments)
-      ? exp.payslipAttachments
+    const empTypeRaw =
+      emp.employmentType || emp.experienceType || emp.type || "";
+    const experiences = Array.isArray(emp.experiences)
+      ? emp.experiences
       : [];
 
-    if (pays.length > 0) {
-      pays.forEach((p, i) => {
+    const empType =
+      empTypeRaw ||
+      (experiences.length > 0 ? "Experience" : "Fresher");
+
+    if (empType === "Fresher") {
+      drawKeyValueTable([
+        { label: "Employment Type", value: empType },
+        { label: "Role Hired", value: emp.hiredRole || "" },
+        { label: "Offered CTC", value: emp.fresherCtc || emp.offeredCtc || "" },
+        { label: "General Remarks", value: emp.generalRemarks || "" },
+        {
+          label: "Offer Letter",
+          value: attachmentValue(
+            emp.offerLetterAttachment || emp.offerLetter,
+            "employmentDetails"
+          ),
+        },
+      ]);
+    } else {
+      const exp = experiences.length ? experiences[0] : null;
+
+      if (exp) {
         drawKeyValueTable([
+          { label: "Employment Type", value: empType || "Experience" },
+          { label: "Company", value: exp.companyName || "" },
           {
-            label: `Payslip ${i + 1}`,
-            value: attachmentValue(p, "employmentDetails"),
+            label: "Duration",
+            value: `${exp.durationFrom || ""} → ${exp.durationTo || ""}`,
+          },
+          { label: "Joined CTC", value: exp.joinedCtc || "" },
+          { label: "Offered CTC", value: exp.offeredCtc || "" },
+          { label: "Reason for Leaving", value: exp.reasonForLeaving || "" },
+          {
+            label: "General Remarks",
+            value: exp.generalRemarks || emp.generalRemarks || "",
+          },
+          {
+            label: "Offer Letter",
+            value: attachmentValue(
+              exp.offerLetterAttachment || exp.offerLetter,
+              "employmentDetails"
+            ),
           },
         ]);
-      });
-    } else {
-      drawKeyValueTable([{ label: "Payslips", value: "None" }]);
-    }
-  } else {
-    drawKeyValueTable([{ label: "Employment Type", value: empType || "Experience" }]);
-  }
-}
 
-    // Finalize PDF
+        const pays = Array.isArray(exp.payslipAttachments)
+          ? exp.payslipAttachments
+          : [];
+
+        if (pays.length > 0) {
+          pays.forEach((p, i) => {
+            drawKeyValueTable([
+              {
+                label: `Payslip ${i + 1}`,
+                value: attachmentValue(p, "employmentDetails"),
+              },
+            ]);
+          });
+        } else {
+          drawKeyValueTable([{ label: "Payslips", value: "None" }]);
+        }
+      } else {
+        // No experience records but marked Experience
+        drawKeyValueTable([
+          { label: "Employment Type", value: empType || "Experience" },
+          { label: "Details", value: "No experience records found" },
+        ]);
+      }
+    }
+
+    // ------------------------------------------------------------------
+    // FINALIZE
+    // ------------------------------------------------------------------
     doc.end();
   } catch (err) {
     console.error("PDF generation error:", err);
@@ -1408,6 +1545,7 @@ if (empType === "Fresher") {
     });
   }
 };
+
 
 
 exports.viewCandidateDetails = async (req, res) => {
