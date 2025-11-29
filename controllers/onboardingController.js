@@ -90,6 +90,8 @@ exports.saveBasicInfo = async (req, res) => {
     record.phoneNumber = phoneNumber;
     record.salutation = salutation;
     record.gender = gender;
+    record.aadharNumber = aadharNumber;
+    record.panNumber = panNumber;
 
     // Encrypt Aadhaar & PAN only if they exist
     if (aadharNumber) record.setAadhar(aadharNumber);
@@ -225,7 +227,7 @@ exports.saveQulification = async (req, res) => {
 
       // Check subbranch ONLY IF qualification requires subbranch
       if (!isNoSubbranch) {
-        if (!item.subbranch || item.subbranch.trim() === "") {
+        if (!item.subbranch && !item.specialization || (item.subbranch && item.subbranch.trim() === "") && (item.specialization && item.specialization.trim() === "")) {
           return res.status(400).json({
             success: false,
             message: `subbranch is required for ${item.qualification || "this qualification"} at index ${i}`
@@ -234,7 +236,7 @@ exports.saveQulification = async (req, res) => {
       }
 
       // yearPassing is required ALWAYS
-      if (!item.yearPassing || item.yearPassing.trim() === "") {
+      if (!item.yearPassing && !item.passingYear || (item.yearPassing && item.yearPassing.trim() === "") && (item.passingYear && item.passingYear.trim() === "")) {
         return res.status(400).json({
           success: false,
           message: `yearPassing is required in education item at index ${i}`
@@ -386,26 +388,36 @@ exports.saveBankDetails = async (req, res) => {
 
 
 // employmentController
-exports.saveEmployeeDetials=async(req,res)=>{
-  try{
-    const {draftId, employmentDetails}=req.body;
-    if(!draftId){
+exports.saveEmployeeDetials = async (req, res) => {
+  try {
+    const { draftId, employmentDetails } = req.body;
+    
+    if (!draftId) {
       return res.status(400).json({
-        success:false,
-        message:"draftId is required for employment details"
-      })
+        success: false,
+        message: "draftId is required for employment details"
+      });
     }
-    const {employmentType,
+
+    if (!employmentDetails) {
+      return res.status(400).json({
+        success: false,
+        message: "employmentDetails is required"
+      });
+    }
+
+    const {
+      employmentType,
       fresherCtc,
       hiredRole,
-
-      // Experience fields
       companyName,
       durationFrom,
       durationTo,
       joinedCtc,
       offeredCtc,
-      reasonForLeaving}=employmentDetails;
+      reasonForLeaving,
+      generalRemarks
+    } = employmentDetails;
   const attachmentList = [];
     if (req.files && req.files.length > 0) {
       req.files.forEach((file) => {
