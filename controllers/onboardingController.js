@@ -1141,7 +1141,7 @@ exports.downloadCandidatePDF = async (req, res) => {
     function buildDownloadUrl(sectionKey, fileName) {
       const baseUrl =
         process.env.PUBLIC_WEB_URL ||
-        "https://offerlettergenerator-production.up.railway.app";
+        "https://offer-documentation.onrender.com";
       const cid = candidate.draftId || candidate._id;
       return `${baseUrl}/api/candidate/${cid}/${sectionKey}/${encodeURIComponent(
         fileName
