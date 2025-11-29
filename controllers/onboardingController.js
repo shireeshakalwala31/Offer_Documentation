@@ -209,6 +209,8 @@ exports.saveQulification = async (req, res) => {
       });
     }
 
+    // ...existing code...
+
     // QUALIFICATIONS that DO NOT require subbranch
     const NO_SUBBRANCH = ["10th", "SSLC", "HSC"];
 
@@ -216,12 +218,17 @@ exports.saveQulification = async (req, res) => {
     for (let i = 0; i < educationArray.length; i++) {
       const item = educationArray[i];
 
+      // Normalize qualification string and check against NO_SUBBRANCH entries (case-insensitive,
+      // allows variations like "10th Standard", "10th Class", etc.)
+      const qualNorm = (item.qualification || "").toLowerCase();
+      const isNoSubbranch = NO_SUBBRANCH.some(q => qualNorm.includes(q.toLowerCase()));
+
       // Check subbranch ONLY IF qualification requires subbranch
-      if (!NO_SUBBRANCH.includes(item.qualification)) {
+      if (!isNoSubbranch) {
         if (!item.subbranch || item.subbranch.trim() === "") {
           return res.status(400).json({
             success: false,
-            message: `subbranch is required for ${item.qualification} at index ${i}`
+            message: `subbranch is required for ${item.qualification || "this qualification"} at index ${i}`
           });
         }
       }
@@ -234,6 +241,8 @@ exports.saveQulification = async (req, res) => {
         });
       }
     }
+
+// ...existing code...
 
     let record = await Qualification.findOne({ draftId });
     if (!record) record = new Qualification({ draftId });
