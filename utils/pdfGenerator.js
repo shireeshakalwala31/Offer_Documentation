@@ -183,13 +183,14 @@ logger.info("✅ [11] Puppeteer launched successfully");
 
     logger.info("🟩 [14] Generating PDF...");
     await page.pdf({
-      path: pdfPath,
-      format: "A4",
-      printBackground: true,
-      preferCSSPageSize: true,
-      margin: { top: "0", bottom: "0", left: "0", right: "0" },
-      timeout: 0,
-    });
+  path: pdfPath,
+  format: "A4",
+  printBackground: true,
+  preferCSSPageSize: true,
+  margin: { top: "5mm", bottom: "5mm", left: "5mm", right: "5mm" },
+  timeout: 0,
+});
+
 
     logger.info(`✅ [15] PDF generated successfully: ${pdfPath}`);
 

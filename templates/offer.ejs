@@ -12,7 +12,7 @@
         --base-font: "Georgia, serif";
       }
 
-      html, body { height: 100%; }
+      html, body { height: auto; }
       body {
         margin: 0;
         color: var(--text);
@@ -27,8 +27,8 @@
         position: relative;
         z-index: 1;
         /* min-height: 260mm; */
-        padding: 2mm 18mm 34mm 18mm;
-        page-break-inside: auto;
+       padding: 2mm 18mm 20mm 18mm;  /* reduced bottom padding */
+       page-break-inside: auto;
       }
 
       .header {
@@ -99,9 +99,11 @@
         margin: 10px 0 8px 0;
         text-decoration: underline;
       }
+/* Force each new container to start on a new page */
+.container + .container {
+  page-break-before: always;
+}
 
-      /* === IMPROVED SECOND PAGE STYLES === */
-      .page-break { page-break-before: always; }
 
       /* Refined list spacing to match original */
       .numbered {
@@ -306,8 +308,8 @@
     </div>
 
     <!-- PAGE 2 (improved layout only) -->
-    <div class="page-break" style="page-break-before: always;"></div>
-    <div class="container annexure-section">
+   <!-- PAGE 2 -->
+<div class="container annexure-section">
       <div class="header">
         <% if (logoPath) { %>
           <img class="logo" src="<%= logoPath %>" alt="Company Logo" />
