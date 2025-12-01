@@ -996,48 +996,30 @@ exports.downloadSingleFile = async (req, res) => {
   try {
     const { id, section, fileName } = req.params;
 
-    // section mapping for OnboardedCandidate structure
-    const SECTION_PATH = {
-      basic: "basicInfo",
-      qualification: "qualification",
-      offer: "offerDetails",
-      bank: "bankDetails",
-      employment: "employmentDetails"
-    };
+    const decodedFileName = decodeURIComponent(fileName);
 
-    const mappedSection = SECTION_PATH[section];
-    if (!mappedSection) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid section name"
-      });
+    const SECTION_MODEL = MODEL_MAP[section];
+    if (!SECTION_MODEL) {
+      return res.status(400).json({ success: false, message: "Invalid section name" });
     }
 
-    // find candidate by draftId or _id
-    let candidate = await OnboardedCandidate.findOne({ draftId: id })
-      .lean();
-    if (!candidate) candidate = await OnboardedCandidate.findById(id).lean();
-
-    if (!candidate) {
-      return res.status(404).json({ success: false, message: "Candidate not found" });
-    }
-
-    const sectionData = candidate[mappedSection];
-    if (!sectionData) {
-      return res.status(404).json({ success: false, message: "Section data not found" });
+    // Load from correct model instead of OnboardedCandidate
+    const record = await SECTION_MODEL.findOne({ draftId: id }).lean();
+    if (!record) {
+      return res.status(404).json({ success: false, message: "Record not found for this section" });
     }
 
     let file = null;
 
     switch (section) {
       case "basic":
-        file = [sectionData.aadharAttachment, sectionData.panAttachment]
-          .find(f => f?.fileName === fileName);
+        file = [record.aadharAttachment, record.panAttachment]
+          .find(f => f?.fileName === decodedFileName);
         break;
 
       case "qualification":
-        for (const edu of sectionData.education || []) {
-          if (edu.certificateAttachment?.fileName === fileName) {
+        for (const edu of record.education || []) {
+          if (edu.certificateAttachment?.fileName === decodedFileName) {
             file = edu.certificateAttachment;
             break;
           }
@@ -1045,25 +1027,28 @@ exports.downloadSingleFile = async (req, res) => {
         break;
 
       case "offer":
-        if (sectionData.offerLetterAttachment?.fileName === fileName) {
-          file = sectionData.offerLetterAttachment;
+        if (record.offerLetterAttachment?.fileName === decodedFileName) {
+          file = record.offerLetterAttachment;
         }
         break;
 
       case "bank":
-        file = sectionData.bankAttachment?.fileName === fileName
-          ? sectionData.bankAttachment
-          : null;
+        if (record.bankAttachment?.fileName === decodedFileName) {
+          file = record.bankAttachment;
+        }
         break;
 
       case "employment":
-        for (const exp of sectionData.experiences || []) {
-          if (exp.offerLetterAttachment?.fileName === fileName) {
+        for (const exp of record.experiences || []) {
+          if (exp.offerLetterAttachment?.fileName === decodedFileName) {
             file = exp.offerLetterAttachment;
             break;
           }
-          const found = exp.payslipAttachments?.find(f => f.fileName === fileName);
-          if (found) { file = found; break; }
+          const found = exp.payslipAttachments?.find(f => f.fileName === decodedFileName);
+          if (found) {
+            file = found;
+            break;
+          }
         }
         break;
     }
@@ -1088,6 +1073,7 @@ exports.downloadSingleFile = async (req, res) => {
     });
   }
 };
+
 
 // Convert base64 → buffer
 function bufferFromBase64(b64) {
