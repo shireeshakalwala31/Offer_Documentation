@@ -381,24 +381,45 @@ exports.saveBankDetails = async (req, res) => {
       return res.status(400).json({ success: false, message: "draftId is required" });
     }
 
-    const { bankName, branchName, accountNumber, confirmAccountNumber, ifscCode } = bankDetails || {};
+    // Parse bankDetails JSON
+    let parsedBankDetails;
+    try {
+      parsedBankDetails = typeof bankDetails === "string"
+        ? JSON.parse(bankDetails)
+        : bankDetails;
+    } catch {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid JSON format in bankDetails"
+      });
+    }
+
+    const {
+      bankName,
+      branchName,
+      accountNumber,
+      confirmAccountNumber,
+      ifscCode
+    } = parsedBankDetails;
 
     if (accountNumber !== confirmAccountNumber) {
-      return res.status(400).json({ success: false, message: "Account Number and Confirm Account Number do not match" });
+      return res.status(400).json({
+        success: false,
+        message: "Account Number and Confirm Account Number do not match"
+      });
     }
 
     // Convert uploaded file -> Base64
-    const attachments = {};
+    let attachment = null;
     if (req.files && req.files.length > 0) {
-      req.files.forEach(file => {
-        attachments[file.fieldname] = {
-          fileName: file.originalname,
-          base64: file.buffer.toString('base64'),
-          mimeType: file.mimetype,
-          fileSize: file.size,
-          uploadedAt: new Date()
-        };
-      });
+      const file = req.files[0];
+      attachment = {
+        fileName: file.originalname,
+        base64: file.buffer.toString("base64"),
+        mimeType: file.mimetype,
+        fileSize: file.size,
+        uploadedAt: new Date()
+      };
     }
 
     let record = await BankDetails.findOne({ draftId });
@@ -406,151 +427,129 @@ exports.saveBankDetails = async (req, res) => {
 
     record.bankName = bankName;
     record.branchName = branchName;
-
-    // Use model method to encrypt
     record.setBankData(accountNumber, ifscCode);
 
-    if (attachments.bankAttachment) {
-      record.bankAttachment = attachments.bankAttachment;
+    if (attachment) {
+      record.bankAttachment = attachment;
     }
 
     await record.save();
 
-    return res.status(200).json({ success: true, message: "Bank details saved successfully", draftId, data: record });
+    return res.status(200).json({
+      success: true,
+      message: "Bank details saved successfully",
+      draftId,
+      data: record
+    });
 
   } catch (error) {
     console.error("Bank Save Error:", error);
-    return res.status(500).json({ success: false, message: "Failed to save bank details", error: error.message });
+    return res.status(500).json({
+      success: false,
+      message: "Failed to save bank details",
+      error: error.message
+    });
   }
 };
 
 
+
 // employmentController
-exports.saveEmployeeDetials = async (req, res) => {
+exports.saveEmployeeDetails = async (req, res) => {
   try {
     const { draftId, employmentDetails } = req.body;
-    
+
     if (!draftId) {
-      return res.status(400).json({
-        success: false,
-        message: "draftId is required for employment details"
-      });
+      return res.status(400).json({ success: false, message: "draftId is required" });
     }
 
     if (!employmentDetails) {
-      return res.status(400).json({
-        success: false,
-        message: "employmentDetails is required"
-      });
+      return res.status(400).json({ success: false, message: "employmentDetails is required" });
+    }
+
+    // Parse JSON text → object
+    let parsedDetails;
+    try {
+      parsedDetails = typeof employmentDetails === "string" ? JSON.parse(employmentDetails) : employmentDetails;
+    } catch {
+      return res.status(400).json({ success: false, message: "Invalid JSON in employmentDetails" });
     }
 
     const {
       employmentType,
       fresherCtc,
       hiredRole,
+      generalRemarks,
+      isExEmployee,
       companyName,
+      joiningCTC,
       durationFrom,
       durationTo,
-      joinedCtc,
-      offeredCtc,
-      reasonForLeaving,
-      generalRemarks
-    } = employmentDetails;
-  const attachmentList = [];
-    if (req.files && req.files.length > 0) {
-      req.files.forEach((file) => {
+      offeredCTC,
+      experienceRemarks
+    } = parsedDetails;
+
+    // Build file attachments list
+    const attachmentList = [];
+    if (req.files?.length) {
+      req.files.forEach(file => {
         attachmentList.push({
           fileName: file.originalname,
           base64: file.buffer.toString("base64"),
           mimeType: file.mimetype,
           fileSize: file.size,
-          uploadedAt: new Date()
+          uploadedAt: new Date(),
         });
       });
     }
+
     let record = await EmploymentDetails.findOne({ draftId });
     if (!record) record = new EmploymentDetails({ draftId });
+
     record.employmentType = employmentType;
-    // fresher logic
+
     if (employmentType === "Fresher") {
       record.fresherCtc = fresherCtc;
       record.hiredRole = hiredRole;
+      record.generalRemarks = generalRemarks;
 
-      // Single attachment → Offer letter
       if (attachmentList.length > 0) {
         record.offerLetterAttachment = attachmentList[0];
       }
     }
-    // experience logic
+
     if (employmentType === "Experience") {
-      const experienceData = {
+      record.experiences = [{
+        isExEmployee,
         companyName,
+        joiningCTC,
         durationFrom,
         durationTo,
-        joinedCtc,
-        offeredCtc,
-        reasonForLeaving,
-        payslipAttachments: attachmentList   // all payslips stored
-      };
-
-      record.experiences = [experienceData];
+        offeredCTC,
+        experienceRemarks,
+        payslipAttachments: attachmentList,
+      }];
     }
-    await record.save()
-    // 🔹 Sync Employment Details into OnboardedCandidate Document
-await OnboardedCandidate.findOneAndUpdate(
-  { draftId },
-  {
-    $set: {
-      "employmentDetails.employmentType": employmentType,
 
-      ...(employmentType === "Fresher"
-        ? {
-            "employmentDetails.fresherCtc": fresherCtc,
-            "employmentDetails.hiredRole": hiredRole,
-            "employmentDetails.generalRemarks":
-              employmentDetails.generalRemarks || "",
-            ...(attachmentList.length > 0 && {
-              "employmentDetails.offerLetterAttachment": attachmentList[0],
-            }),
-          }
-        : {
-            "employmentDetails.experiences": [
-              {
-                companyName,
-                durationFrom,
-                durationTo,
-                joinedCtc,
-                offeredCtc,
-                reasonForLeaving,
-                generalRemarks:
-                  employmentDetails.generalRemarks || "",
-                payslipAttachments: attachmentList,
-              },
-            ],
-          }),
-    },
-  },
-  { upsert: true }
-);
+    await record.save();
 
     return res.status(200).json({
       success: true,
       message: "Employment details saved successfully",
       draftId,
-      data: record
-    })
+      data: record,
+    });
 
-  }catch(error){
+  } catch (error) {
     console.error("Employment Save Error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to save employment details",
-      error: error.message
+      error: error.message,
     });
-
   }
+};
 
-}
 exports.fetchDraft = async (req, res) => {
   try {
     const { draftId } = req.query;

@@ -3,7 +3,7 @@ const router = express.Router();
 const multer = require("multer");
 const upload = require("../middleware/upload");
 const { verifyToken } = require("../middleware/authMiddleware");
-const { saveBasicInfo,saveQulification,saveOfferDetails,saveBankDetails,fetchDraft,finalSubmit,getCandidatesWithSearch,saveEmployeeDetials,getCandidateById,deleteCandidate,updateSection,uploadAnySectionFiles,downloadCandidatePDF,downloadSingleFile,viewCandidateDetails} = require("../controllers/onboardingController");
+const { saveBasicInfo,saveQulification,saveOfferDetails,saveBankDetails,fetchDraft,finalSubmit,getCandidatesWithSearch,saveEmployeeDetails,getCandidateById,deleteCandidate,updateSection,uploadAnySectionFiles,downloadCandidatePDF,downloadSingleFile,viewCandidateDetails} = require("../controllers/onboardingController");
 
 
 router.post(
@@ -30,7 +30,7 @@ router.post(
 router.post(
   "/employment-details",
   upload.any(), // payslips or offer letter
-  verifyToken,saveEmployeeDetials
+  verifyToken,saveEmployeeDetails
 );
 router.get(
   "/fetch-draft",

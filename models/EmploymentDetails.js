@@ -1,64 +1,39 @@
-// models/EmploymentDetails.js
 const mongoose = require("mongoose");
 
-const attachmentSchema = new mongoose.Schema(
-  {
-    fileName: String,
-    base64: String,
-    mimeType: String,
-    fileSize: Number,
-    uploadedAt: Date
-  },
-  { _id: false }
-);
+const attachmentSchema = new mongoose.Schema({
+  fileName: String,
+  base64: String,
+  mimeType: String,
+  fileSize: Number,
+  uploadedAt: Date,
+}, { _id: false });
 
-// Experience sub-schema
-const experienceSchema = new mongoose.Schema(
-  {
-    companyName: String,
-    durationFrom: String,
-    durationTo: String,
-    joinedCtc: String,
-    offeredCtc: String,
-    reasonForLeaving: String,
+const experienceSchema = new mongoose.Schema({
+  isExEmployee: String,
+  companyName: String,
+  joiningCTC: String,
+  durationFrom: String,
+  durationTo: String,
+  offeredCTC: String,
+  experienceRemarks: String,
+  payslipAttachments: [attachmentSchema],
+}, { _id: false });
 
-    payslipAttachments: [attachmentSchema]   // Base64 array
-  },
-  { _id: false }
-);
+const employmentSchema = new mongoose.Schema({
+  draftId: { type: String, required: true, index: true },
 
-const employmentSchema = new mongoose.Schema(
-  {
-    draftId: { type: String, required: true, index: true },
+  employmentType: { type: String, required: true }, // Fresher / Experience
 
-    employmentType: {
-      type: String,
-      enum: ["Fresher", "Experience"],
-      required: true
-    },
+  // Fresher Only
+  fresherCtc: String,
+  hiredRole: String,
+  generalRemarks: String,
 
-    // Optional alias for compatibility with clients sending experienceType
-    experienceType: {
-      type: String,
-      enum: ["Fresher", "Experience"]
-    },
+  // Experience Only
+  experiences: [experienceSchema],
 
-    // Fresher fields
-    fresherCtc: String,
-    hiredRole: String,
-
-    // Optional general remarks/notes
-    generalRemarks: String,
-    general_notes: String,
-    notes: String,
-    
-    offerLetterAttachment: attachmentSchema,
-
-    // Experience fields
-    experiences: [experienceSchema]  // can store multiple companies
-
-  },
-  { timestamps: true }
-);
+  // Fresher Offer Letter
+  offerLetterAttachment: attachmentSchema,
+}, { timestamps: true });
 
 module.exports = mongoose.model("EmploymentDetails", employmentSchema);
