@@ -996,76 +996,81 @@ exports.downloadSingleFile = async (req, res) => {
   try {
     const { id, section, fileName } = req.params;
 
-    const decodedFileName = decodeURIComponent(fileName);
+    // Step 1: Find candidate by draftId or _id
+    let candidate = await OnboardedCandidate.findOne({ draftId: id });
+    if (!candidate) {
+      try { candidate = await OnboardedCandidate.findById(id); } catch (_) {}
+    }
 
-    const SECTION_MODEL = MODEL_MAP[section];
-    if (!SECTION_MODEL) {
+    if (!candidate) {
+      return res.status(404).json({ success: false, message: "Candidate not found" });
+    }
+
+    // Step 2: get correct section object
+    let sectionData = candidate[section];
+    if (!sectionData) {
       return res.status(400).json({ success: false, message: "Invalid section name" });
     }
 
-    // Load from correct model instead of OnboardedCandidate
-    const record = await SECTION_MODEL.findOne({ draftId: id }).lean();
-    if (!record) {
-      return res.status(404).json({ success: false, message: "Record not found for this section" });
+    // Step 3: find the actual attachment
+    let file;
+
+    if (section === "basicInfo") {
+      file = sectionData.aadharAttachment?.fileName === fileName ? sectionData.aadharAttachment :
+             sectionData.panAttachment?.fileName === fileName ? sectionData.panAttachment : null;
     }
 
-    let file = null;
-
-    switch (section) {
-      case "basic":
-        file = [record.aadharAttachment, record.panAttachment]
-          .find(f => f?.fileName === decodedFileName);
-        break;
-
-      case "qualification":
-        for (const edu of record.education || []) {
-          if (edu.certificateAttachment?.fileName === decodedFileName) {
-            file = edu.certificateAttachment;
-            break;
-          }
+    if (section === "qualification") {
+      for (const edu of (Array.isArray(sectionData.education) ? sectionData.education : [])) {
+        if (edu.certificateAttachment?.fileName === fileName) {
+          file = edu.certificateAttachment;
+          break;
         }
-        break;
+      }
+      // Root-level OD was removed from qualification; nothing to fetch here.
+    }
 
-      case "offer":
-        if (record.offerLetterAttachment?.fileName === decodedFileName) {
-          file = record.offerLetterAttachment;
-        }
-        break;
+    if (section === "offerDetails") {
+      if (sectionData.offerLetterAttachment?.fileName === fileName) {
+        file = sectionData.offerLetterAttachment;
+      }
+    }
 
-      case "bank":
-        if (record.bankAttachment?.fileName === decodedFileName) {
-          file = record.bankAttachment;
-        }
-        break;
+    if (section === "bankDetails") {
+      if (sectionData.bankAttachment?.fileName === fileName) {
+        file = sectionData.bankAttachment;
+      }
+    }
 
-      case "employment":
-        for (const exp of record.experiences || []) {
-          if (exp.offerLetterAttachment?.fileName === decodedFileName) {
-            file = exp.offerLetterAttachment;
-            break;
-          }
-          const found = exp.payslipAttachments?.find(f => f.fileName === decodedFileName);
-          if (found) {
-            file = found;
-            break;
-          }
+    if (section === "employmentDetails") {
+      const exps = Array.isArray(sectionData.experiences) ? sectionData.experiences : [];
+      for (const exp of exps) {
+        if (exp?.offerLetterAttachment?.fileName === fileName) {
+          file = exp.offerLetterAttachment;
+          break;
         }
-        break;
+        if (!file && Array.isArray(exp?.payslipAttachments)) {
+          const found = exp.payslipAttachments.find(f => f.fileName === fileName);
+          if (found) { file = found; break; }
+        }
+      }
     }
 
     if (!file) {
       return res.status(404).json({ success: false, message: "File not found" });
     }
 
-    const buffer = Buffer.from(file.base64, "base64");
+    // Step 4: Convert BASE64 → binary
+    const fileBuffer = Buffer.from(file.base64, "base64");
 
-    res.setHeader("Content-Type", file.mimeType);
-    res.setHeader("Content-Disposition", `attachment; filename="${file.fileName}"`);
+    res.set({
+      "Content-Type": file.mimeType,
+      "Content-Disposition": `attachment; filename="${file.fileName}"`
+    });
 
-    return res.send(buffer);
+    return res.send(fileBuffer);
 
   } catch (err) {
-    console.error("File download error:", err);
     return res.status(500).json({
       success: false,
       message: "Failed to download file",
