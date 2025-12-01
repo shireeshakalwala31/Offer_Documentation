@@ -290,23 +290,42 @@ for (let i = 0; i < educationArray.length; i++) {
 };
 
 
+exports.saveOfferDetails = async (req, res) => {
+  try {
+    const { draftId, offerDetails } = req.body;
 
-
-
-// Offer or InterView Controller
-exports.saveOfferDetails=async(req,res)=>{
-  try{
-    const {draftId, offerDetails}=req.body;
-    if(!draftId){
+    if (!draftId) {
       return res.status(400).json({
-        success:false,
-        message:"draftId required for OfferDetails page"
-      })
+        success: false,
+        message: "draftId required for OfferDetails page"
+      });
     }
-    const {offerDate,dateOfJoining,employeeId,interviewRemarks}=offerDetails;
-     let attachment = null;
+
+    // Parse offerDetails if it is a string
+    let parsedDetails;
+    try {
+      parsedDetails = typeof offerDetails === "string" 
+        ? JSON.parse(offerDetails) 
+        : offerDetails;
+    } catch {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid JSON format in offerDetails"
+      });
+    }
+
+    const {
+      offerDate,
+      dateOfJoining,
+      employeeId,
+      position,
+      department,
+      location,
+      interviewRemarks
+    } = parsedDetails;
 
     // Convert uploaded offer letter → Base64
+    let attachment = null;
     if (req.files && req.files.length > 0) {
       const file = req.files[0];
       attachment = {
@@ -317,32 +336,42 @@ exports.saveOfferDetails=async(req,res)=>{
         uploadedAt: new Date()
       };
     }
-    let record=await OfferDetails.findOne({draftId})
-    if(!record) record =new OfferDetails({draftId})
-    record.offerDate=offerDate;
-    record.dateOfJoining=dateOfJoining;
-    record.employeeId=employeeId;
-    record.interviewRemarks=interviewRemarks
 
-    if(attachment) record.offerLetterAttachment=attachment
-    await record.save()
+    let record = await OfferDetails.findOne({ draftId });
+    if (!record) record = new OfferDetails({ draftId });
+
+    // Save all offerDetails fields
+    record.offerDate = offerDate;
+    record.dateOfJoining = dateOfJoining;
+    record.employeeId = employeeId;
+    record.position = position;
+    record.department = department;
+    record.location = location;
+    record.interviewRemarks = interviewRemarks;
+
+    if (attachment) {
+      record.offerLetterAttachment = attachment;
+    }
+
+    await record.save();
+
     return res.status(200).json({
-      success:true,
-      message:"Offer details saved successfully",
+      success: true,
+      message: "Offer details saved successfully",
       draftId,
-      data:record
-    })
-  }catch(error){
+      data: record
+    });
+
+  } catch (error) {
     console.error("Offer Save Error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to save offer details",
       error: error.message
     });
-
   }
+};
 
-}
 // Bank Details
 exports.saveBankDetails = async (req, res) => {
   try {

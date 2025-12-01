@@ -19,6 +19,9 @@ const offerDetailsSchema = new mongoose.Schema(
     offerDate: String,
     dateOfJoining: String,
     employeeId: String,
+    position: String,
+    department: String,
+    location: String,
     interviewRemarks: String,
 
     offerLetterAttachment: attachmentSchema
