@@ -198,18 +198,27 @@ exports.saveQulification = async (req, res) => {
     }
 
     // Convert uploaded files → Base64
-    const attachments = {};
-    if (req.files && req.files.length > 0) {
-      req.files.forEach((file) => {
-        attachments[file.fieldname] = {
-          fileName: file.originalname,
-          base64: file.buffer.toString("base64"),
-          mimeType: file.mimetype,
-          fileSize: file.size,
-          uploadedAt: new Date()
-        };
-      });
-    }
+   const attachments = {};
+
+if (req.files) {
+  req.files.forEach((file) => {
+    attachments[file.fieldname] = {
+      fileName: file.originalname,
+      base64: file.buffer.toString("base64"),
+      mimeType: file.mimetype,
+      fileSize: file.size,
+      uploadedAt: new Date()
+    };
+  });
+}
+
+educationArray.forEach((item, index) => {
+  const key = `certificateAttachment_${index}`;
+  if (attachments[key]) {
+    item.certificateAttachment = attachments[key];
+  }
+});
+
 
     // ...existing code...
 
