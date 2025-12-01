@@ -996,62 +996,75 @@ exports.downloadSingleFile = async (req, res) => {
   try {
     const { id, section, fileName } = req.params;
 
-    // Step 1: Find candidate by draftId or _id
-    let candidate = await OnboardedCandidate.findOne({ draftId: id });
-    if (!candidate) {
-      try { candidate = await OnboardedCandidate.findById(id); } catch (_) {}
+    // Map incoming short names to actual document structure
+    const SECTION_MAP = {
+      basic: "basicInfo",
+      qualification: "qualification",
+      offer: "offerDetails",
+      bank: "bankDetails",
+      employment: "employmentDetails"
+    };
+
+    const mappedSection = SECTION_MAP[section];
+    if (!mappedSection) {
+      return res.status(400).json({ success: false, message: "Invalid section name" });
     }
+
+    // Find candidate by draftId or _id
+    let candidate = await OnboardedCandidate.findOne({ draftId: id }).lean();
+    if (!candidate) candidate = await OnboardedCandidate.findById(id).lean();
 
     if (!candidate) {
       return res.status(404).json({ success: false, message: "Candidate not found" });
     }
 
-    // Step 2: get correct section object
-    let sectionData = candidate[section];
+    const sectionData = candidate[mappedSection];
     if (!sectionData) {
-      return res.status(400).json({ success: false, message: "Invalid section name" });
+      return res.status(404).json({ success: false, message: "Section data not found" });
     }
 
-    // Step 3: find the actual attachment
-    let file;
+    let file = null;
 
-    if (section === "basicInfo") {
-      file = sectionData.aadharAttachment?.fileName === fileName ? sectionData.aadharAttachment :
-             sectionData.panAttachment?.fileName === fileName ? sectionData.panAttachment : null;
+    if (mappedSection === "basicInfo") {
+      file =
+        sectionData.aadharAttachment?.fileName === fileName
+          ? sectionData.aadharAttachment
+          : sectionData.panAttachment?.fileName === fileName
+          ? sectionData.panAttachment
+          : null;
     }
 
-    if (section === "qualification") {
-      for (const edu of (Array.isArray(sectionData.education) ? sectionData.education : [])) {
+    if (mappedSection === "qualification") {
+      for (const edu of sectionData.education || []) {
         if (edu.certificateAttachment?.fileName === fileName) {
           file = edu.certificateAttachment;
           break;
         }
       }
-      // Root-level OD was removed from qualification; nothing to fetch here.
     }
 
-    if (section === "offerDetails") {
-      if (sectionData.offerLetterAttachment?.fileName === fileName) {
-        file = sectionData.offerLetterAttachment;
-      }
+    if (mappedSection === "offerDetails") {
+      file = sectionData.offerLetterAttachment?.fileName === fileName
+        ? sectionData.offerLetterAttachment
+        : null;
     }
 
-    if (section === "bankDetails") {
-      if (sectionData.bankAttachment?.fileName === fileName) {
-        file = sectionData.bankAttachment;
-      }
+    if (mappedSection === "bankDetails") {
+      file = sectionData.bankAttachment?.fileName === fileName
+        ? sectionData.bankAttachment
+        : null;
     }
 
-    if (section === "employmentDetails") {
-      const exps = Array.isArray(sectionData.experiences) ? sectionData.experiences : [];
-      for (const exp of exps) {
-        if (exp?.offerLetterAttachment?.fileName === fileName) {
+    if (mappedSection === "employmentDetails") {
+      for (const exp of sectionData.experiences || []) {
+        if (exp.offerLetterAttachment?.fileName === fileName) {
           file = exp.offerLetterAttachment;
           break;
         }
-        if (!file && Array.isArray(exp?.payslipAttachments)) {
-          const found = exp.payslipAttachments.find(f => f.fileName === fileName);
-          if (found) { file = found; break; }
+        const found = exp.payslipAttachments?.find(f => f.fileName === fileName);
+        if (found) {
+          file = found;
+          break;
         }
       }
     }
@@ -1060,7 +1073,6 @@ exports.downloadSingleFile = async (req, res) => {
       return res.status(404).json({ success: false, message: "File not found" });
     }
 
-    // Step 4: Convert BASE64 → binary
     const fileBuffer = Buffer.from(file.base64, "base64");
 
     res.set({
@@ -1070,14 +1082,16 @@ exports.downloadSingleFile = async (req, res) => {
 
     return res.send(fileBuffer);
 
-  } catch (err) {
+  } catch (error) {
+    console.error("Download Error:", error);
     return res.status(500).json({
       success: false,
       message: "Failed to download file",
-      error: err.message
+      error: error.message
     });
   }
 };
+
 
 
 // Convert base64 → buffer
