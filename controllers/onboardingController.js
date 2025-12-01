@@ -995,8 +995,9 @@ exports.uploadAnySectionFiles = async (req, res) => {
 exports.downloadSingleFile = async (req, res) => {
   try {
     const { id, section, fileName } = req.params;
+    const decodedFileName = decodeURIComponent(fileName);
 
-    // Map incoming short names to actual document structure
+    // 1. Section mapping for OnboardedCandidate fields
     const SECTION_MAP = {
       basic: "basicInfo",
       qualification: "qualification",
@@ -1010,77 +1011,69 @@ exports.downloadSingleFile = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid section name" });
     }
 
-    // Find candidate by draftId or _id
-    let candidate = await OnboardedCandidate.findOne({ draftId: id }).lean();
-    if (!candidate) candidate = await OnboardedCandidate.findById(id).lean();
-
-    if (!candidate) {
+    // 2. Find candidate only in OnboardedCandidate model
+    const candidate = await OnboardedCandidate.findOne({ draftId: id }).lean();
+    if (!candidate)
       return res.status(404).json({ success: false, message: "Candidate not found" });
-    }
 
     const sectionData = candidate[mappedSection];
-    if (!sectionData) {
-      return res.status(404).json({ success: false, message: "Section data not found" });
-    }
+    if (!sectionData)
+      return res.status(404).json({ success: false, message: "Section not found in candidate record" });
 
+    // 3. File search depending on section
     let file = null;
 
-    if (mappedSection === "basicInfo") {
-      file =
-        sectionData.aadharAttachment?.fileName === fileName
-          ? sectionData.aadharAttachment
-          : sectionData.panAttachment?.fileName === fileName
-          ? sectionData.panAttachment
-          : null;
+    if (section === "basic") {
+      file = [sectionData.aadharAttachment, sectionData.panAttachment]
+        .find(f => f?.fileName === decodedFileName);
     }
 
-    if (mappedSection === "qualification") {
+    if (section === "qualification") {
       for (const edu of sectionData.education || []) {
-        if (edu.certificateAttachment?.fileName === fileName) {
+        if (edu.certificateAttachment?.fileName === decodedFileName) {
           file = edu.certificateAttachment;
           break;
         }
       }
     }
 
-    if (mappedSection === "offerDetails") {
-      file = sectionData.offerLetterAttachment?.fileName === fileName
+    if (section === "offer") {
+      file = sectionData.offerLetterAttachment?.fileName === decodedFileName
         ? sectionData.offerLetterAttachment
         : null;
     }
 
-    if (mappedSection === "bankDetails") {
-      file = sectionData.bankAttachment?.fileName === fileName
+    if (section === "bank") {
+      file = sectionData.bankAttachment?.fileName === decodedFileName
         ? sectionData.bankAttachment
         : null;
     }
 
-    if (mappedSection === "employmentDetails") {
+    if (section === "employment") {
       for (const exp of sectionData.experiences || []) {
-        if (exp.offerLetterAttachment?.fileName === fileName) {
+        const matchOffer = exp.offerLetterAttachment?.fileName === decodedFileName;
+        if (matchOffer) {
           file = exp.offerLetterAttachment;
           break;
         }
-        const found = exp.payslipAttachments?.find(f => f.fileName === fileName);
-        if (found) {
-          file = found;
+        const matchPayslip = exp.payslipAttachments?.find(f => f.fileName === decodedFileName);
+        if (matchPayslip) {
+          file = matchPayslip;
           break;
         }
       }
     }
 
-    if (!file) {
+    if (!file)
       return res.status(404).json({ success: false, message: "File not found" });
-    }
 
-    const fileBuffer = Buffer.from(file.base64, "base64");
-
+    const buffer = Buffer.from(file.base64, "base64");
     res.set({
       "Content-Type": file.mimeType,
       "Content-Disposition": `attachment; filename="${file.fileName}"`
     });
 
-    return res.send(fileBuffer);
+    return res.send(buffer);
 
   } catch (error) {
     console.error("Download Error:", error);
@@ -1091,6 +1084,7 @@ exports.downloadSingleFile = async (req, res) => {
     });
   }
 };
+
 
 
 
