@@ -217,32 +217,32 @@ exports.saveQulification = async (req, res) => {
     const NO_SUBBRANCH = ["10th", "SSLC", "HSC"];
 
     // Validate fields
-    for (let i = 0; i < educationArray.length; i++) {
-      const item = educationArray[i];
+    // Validate fields
+for (let i = 0; i < educationArray.length; i++) {
+  const item = educationArray[i];
 
-      // Normalize qualification string and check against NO_SUBBRANCH entries (case-insensitive,
-      // allows variations like "10th Standard", "10th Class", etc.)
-      const qualNorm = (item.qualification || "").toLowerCase();
-      const isNoSubbranch = NO_SUBBRANCH.some(q => qualNorm.includes(q.toLowerCase()));
+  const qualNorm = (item.qualification || "").toLowerCase();
+  const isNoSubbranch = NO_SUBBRANCH.some(q => qualNorm.includes(q.toLowerCase()));
 
-      // Check subbranch ONLY IF qualification requires subbranch
-      if (!isNoSubbranch) {
-        if (!item.subbranch && !item.specialization || (item.subbranch && item.subbranch.trim() === "") && (item.specialization && item.specialization.trim() === "")) {
-          return res.status(400).json({
-            success: false,
-            message: `subbranch is required for ${item.qualification || "this qualification"} at index ${i}`
-          });
-        }
-      }
-
-      // yearPassing is required ALWAYS
-      if (!item.yearPassing && !item.passingYear || (item.yearPassing && item.yearPassing.trim() === "") && (item.passingYear && item.passingYear.trim() === "")) {
-        return res.status(400).json({
-          success: false,
-          message: `yearPassing is required in education item at index ${i}`
-        });
-      }
+  // Check subbranch ONLY IF qualification requires subbranch
+  if (!isNoSubbranch) {
+    if (!item.subbranch || item.subbranch.trim() === "") {
+      return res.status(400).json({
+        success: false,
+        message: `subbranch is required for ${item.qualification || "this qualification"} at index ${i}`
+      });
     }
+  }
+
+  // yearPassing is ALWAYS required
+  if (!item.yearPassing || item.yearPassing.trim() === "") {
+    return res.status(400).json({
+      success: false,
+      message: `yearPassing is required in education item at index ${i}`
+    });
+  }
+}
+
 
 // ...existing code...
 

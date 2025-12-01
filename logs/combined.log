@@ -828,3 +828,19 @@
 2025-12-01T10:01:10.694Z  WARN: API key does not start with "SG.".
 2025-12-01T10:01:11.473Z  INFO: Server Running on PORT 5000
 2025-12-01T10:01:11.474Z  ERROR: MongoDB connection error: The `uri` parameter to `openUri()` must be a string, got "undefined". Make sure the first parameter to `mongoose.connect()` or `mongoose.createConnection()` is a string.
+2025-12-01T10:02:57.395Z  INFO: [dotenv@17.2.3] injecting env (0) from .env [2m-- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit[0m
+2025-12-01T10:02:58.491Z  WARN: API key does not start with "SG.".
+2025-12-01T10:02:58.914Z  INFO: Server Running on PORT 5000
+2025-12-01T10:02:58.915Z  ERROR: MongoDB connection error: The `uri` parameter to `openUri()` must be a string, got "undefined". Make sure the first parameter to `mongoose.connect()` or `mongoose.createConnection()` is a string.
+2025-12-01T11:10:11.462Z  INFO: [dotenv@17.2.3] injecting env (10) from .env [2m-- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }[0m
+2025-12-01T11:10:14.435Z  ERROR: (node:952) [MONGODB DRIVER] Warning: useNewUrlParser is a deprecated option: useNewUrlParser has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version
+(Use `node --trace-warnings ...` to show where the warning was created)
+2025-12-01T11:10:14.435Z  ERROR: (node:952) [MONGODB DRIVER] Warning: useUnifiedTopology is a deprecated option: useUnifiedTopology has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version
+2025-12-01T11:10:14.436Z  INFO: Server Running on PORT 5000
+2025-12-01T11:10:15.124Z  INFO: MongoDB connected
+2025-12-01T11:16:50.435Z  INFO: [dotenv@17.2.3] injecting env (10) from .env [2m-- tip: 🔄 add secrets lifecycle management: https://dotenvx.com/ops[0m
+2025-12-01T11:16:53.700Z  ERROR: (node:18296) [MONGODB DRIVER] Warning: useNewUrlParser is a deprecated option: useNewUrlParser has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version
+(Use `node --trace-warnings ...` to show where the warning was created)
+2025-12-01T11:16:53.701Z  ERROR: (node:18296) [MONGODB DRIVER] Warning: useUnifiedTopology is a deprecated option: useUnifiedTopology has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version
+2025-12-01T11:16:53.702Z  INFO: Server Running on PORT 5000
+2025-12-01T11:16:54.569Z  INFO: MongoDB connected

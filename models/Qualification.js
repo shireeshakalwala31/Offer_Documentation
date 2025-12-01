@@ -13,13 +13,12 @@ const attachmentSchema = new mongoose.Schema(
 
 const educationSchema = new mongoose.Schema(
   {
-    qualification: { type: String, required: true },      // B.Tech, Intermediate, 10th
-    specialization: String,
+    qualification: { type: String, required: true },
+    subbranch: { type: String, required: false },
     percentage: String,
     university: String,
-    passingYear: String,
-
-    certificateAttachment: attachmentSchema       // marksheet / OD / 10th memo
+    yearPassing: { type: String, required: false },
+    certificateAttachment: attachmentSchema
   },
   { _id: false }
 );
