@@ -11,8 +11,8 @@ const onboardSchema = new mongoose.Schema(
     bankDetails: Object,
     employmentDetails: Object,
 
-    submittedAt: { type: Date, default: Date.now },
-    status: { type: String, default: "completed" }
+    submittedAt: { type: Date, default: null },
+    status: { type: String, default: "draft" } // FIXED
   },
   { timestamps: true }
 );
