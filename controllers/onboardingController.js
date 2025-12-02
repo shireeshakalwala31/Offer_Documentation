@@ -2,6 +2,7 @@ const logger = require('../logger/logger');
 const Messages = require('../MsgConstants/messages');
 const PDFDocument = require("pdfkit");
 const { encryptText, decryptText } = require('../utils/cryptoUtil');
+const { syncCandidateSection } = require("../utils/syncCandidate");
 
 const BasicInfo = require("../models/BasicInfo");
 const OfferDetails = require("../models/OfferDetails");
@@ -26,30 +27,19 @@ exports.saveBasicInfo = async (req, res) => {
       panNumber
     } = req.body;
 
-    // Validation for required fields
-    if (!fatherName || fatherName.trim() === "") {
-      return res.status(400).json({
-        success: false,
-        message: "fatherName is required"
-      });
+    if (!fatherName?.trim()) {
+      return res.status(400).json({ success: false, message: "fatherName is required" });
     }
 
-    if (!phoneNumber || phoneNumber.trim() === "") {
-      return res.status(400).json({
-        success: false,
-        message: "phoneNumber is required"
-      });
+    if (!phoneNumber?.trim()) {
+      return res.status(400).json({ success: false, message: "phoneNumber is required" });
     }
 
-    // Generate draftId if not provided
-    let draftId = existingDraftId;
-    if (!draftId) {
-      draftId = BasicInfo.generateDraftId(aadharNumber, panNumber);
-    }
+    let draftId = existingDraftId || BasicInfo.generateDraftId(aadharNumber, panNumber);
 
-    // Prepare Base64 attachments
+    // Prepare attachments
     const attachments = {};
-    if (req.files && req.files.length > 0) {
+    if (req.files?.length > 0) {
       req.files.forEach((file) => {
         attachments[file.fieldname] = {
           fileName: file.originalname,
@@ -61,79 +51,42 @@ exports.saveBasicInfo = async (req, res) => {
       });
     }
 
-    // Check existing draft
     let record = await BasicInfo.findOne({ draftId });
-
     if (!record) record = new BasicInfo({ draftId });
 
-    // Check for required attachments AFTER record is fetched
     if (!attachments.aadhar && !record.aadharAttachment) {
-      return res.status(400).json({
-        success: false,
-        message: "aadharAttachment is required"
-      });
+      return res.status(400).json({ success: false, message: "aadharAttachment is required" });
     }
 
     if (!attachments.pan && !record.panAttachment) {
-      return res.status(400).json({
-        success: false,
-        message: "panAttachment is required"
-      });
+      return res.status(400).json({ success: false, message: "panAttachment is required" });
     }
 
-    // Update fields
+    // Assign fields
+    record.salutation = salutation;
     record.firstName = firstName;
     record.lastName = lastName;
     record.fatherName = fatherName;
     record.email = email;
     record.countryCode = countryCode;
     record.phoneNumber = phoneNumber;
-    record.salutation = salutation;
     record.gender = gender;
-    record.aadharNumber = aadharNumber;
-    record.panNumber = panNumber;
 
-    // Encrypt Aadhaar & PAN only if they exist
+    // Encrypt if new Aadhaar/PAN received
     if (aadharNumber) record.setAadhar(aadharNumber);
     if (panNumber) record.setPan(panNumber);
 
-    // Attachments
+    // Ensure formatted values stored for response/PDF
+    record.aadharNumber = aadharNumber ?? record.getAadhar();
+    record.panNumber = panNumber ?? record.getPan();
+
     if (attachments.aadhar) record.aadharAttachment = attachments.aadhar;
     if (attachments.pan) record.panAttachment = attachments.pan;
 
     await record.save();
-    // 🔹 Sync Basic Info into OnboardedCandidate Document
-await OnboardedCandidate.findOneAndUpdate(
-  { draftId },
-  {
-    $set: {
-      "basicInfo.salutation": salutation,
-      "basicInfo.firstName": firstName,
-      "basicInfo.lastName": lastName,
-      "basicInfo.fatherName": fatherName,
-      "basicInfo.email": email,
-      "basicInfo.countryCode": countryCode,
-      "basicInfo.phoneNumber": phoneNumber,
-      "basicInfo.gender": gender,
 
-      ...(aadharNumber && {
-        "basicInfo.aadharEncrypted": record.aadharEncrypted,
-      }),
-      ...(panNumber && {
-        "basicInfo.panEncrypted": record.panEncrypted,
-      }),
-
-      ...(attachments.aadhar && {
-        "basicInfo.aadharAttachment": record.aadharAttachment,
-      }),
-      ...(attachments.pan && {
-        "basicInfo.panAttachment": record.panAttachment,
-      }),
-    },
-  },
-  { upsert: true }
-);
-
+    // Sync to OnboardedCandidate
+    await syncCandidateSection(draftId, "basicInfo", record.toObject());
 
     return res.status(200).json({
       success: true,
@@ -141,136 +94,92 @@ await OnboardedCandidate.findOneAndUpdate(
       draftId,
       data: record
     });
+
   } catch (err) {
-    return res.status(500).json({
-      success: false,
-      message: "Failed to save basic info",
-      error: err.message
-    });
+    console.error("Basic Save Error:", err);
+    return res.status(500).json({ success: false, message: "Failed to save basic info", error: err.message });
   }
 };
 
 // Qulification Controller
-
 exports.saveQulification = async (req, res) => {
   try {
     const { draftId, education } = req.body;
 
     if (!draftId) {
-      return res.status(400).json({
-        success: false,
-        message: "draftId required for qualification page"
-      });
+      return res.status(400).json({ success: false, message: "draftId is required" });
     }
 
-    // Normalize education to an array (accept both array and JSON string)
-    let educationArray;
-    if (Array.isArray(education)) {
-      educationArray = education;
-    } else if (typeof education === "string") {
-      try {
-        const parsed = JSON.parse(education);
-        if (!Array.isArray(parsed)) {
+    // Parse education array if string
+    let educationArray = Array.isArray(education)
+      ? education
+      : JSON.parse(education || "[]");
+
+    if (!educationArray.length) {
+      return res.status(400).json({ success: false, message: "Education array required" });
+    }
+
+    // Qualification types NOT requiring specialization
+    const NO_SUBBRANCH = ["10th", "ssc", "sslc", "hsc"];
+
+    // Validate and normalize data
+    for (let i = 0; i < educationArray.length; i++) {
+      const item = educationArray[i];
+      const qual = (item.qualification || "").toLowerCase();
+
+      if (!NO_SUBBRANCH.some(q => qual.includes(q))) {
+        if (!item.subbranch || item.subbranch.trim() === "") {
           return res.status(400).json({
             success: false,
-            message: "Education must be a valid JSON array"
+            message: `subbranch required for ${item.qualification} at index ${i}`
           });
         }
-        educationArray = parsed;
-      } catch (err) {
+        item.specialization = item.subbranch;
+      }
+
+      if (!item.yearPassing?.trim()) {
         return res.status(400).json({
           success: false,
-          message: "Education must be a valid JSON array"
+          message: `yearPassing required at index ${i}`
         });
       }
-    } else {
-      return res.status(400).json({
-        success: false,
-        message: "Education must be a valid JSON array"
+
+      item.passingYear = item.yearPassing;
+    }
+
+    // Handle attachments
+    const attachments = {};
+    if (req.files?.length) {
+      req.files.forEach((file, index) => {
+        attachments[`certificateAttachment_${index}`] = {
+          fileName: file.originalname,
+          base64: file.buffer.toString("base64"),
+          mimeType: file.mimetype,
+          fileSize: file.size,
+          uploadedAt: new Date()
+        };
       });
     }
 
-    if (!Array.isArray(educationArray) || educationArray.length === 0) {
-      return res.status(400).json({
-        success: false,
-        message: "Education array is required"
-      });
-    }
-
-    // Convert uploaded files → Base64
-   const attachments = {};
-
-if (req.files) {
-  req.files.forEach((file) => {
-    attachments[file.fieldname] = {
-      fileName: file.originalname,
-      base64: file.buffer.toString("base64"),
-      mimeType: file.mimetype,
-      fileSize: file.size,
-      uploadedAt: new Date()
-    };
-  });
-}
-
-educationArray.forEach((item, index) => {
-  const key = `certificateAttachment_${index}`;
-  if (attachments[key]) {
-    item.certificateAttachment = attachments[key];
-  }
-});
-
-
-    // ...existing code...
-
-    // QUALIFICATIONS that DO NOT require subbranch
-    const NO_SUBBRANCH = ["10th", "SSLC", "HSC"];
-
-    // Validate fields
-    // Validate fields
-for (let i = 0; i < educationArray.length; i++) {
-  const item = educationArray[i];
-
-  const qualNorm = (item.qualification || "").toLowerCase();
-  const isNoSubbranch = NO_SUBBRANCH.some(q => qualNorm.includes(q.toLowerCase()));
-
-  // Check subbranch ONLY IF qualification requires subbranch
-  if (!isNoSubbranch) {
-    if (!item.subbranch || item.subbranch.trim() === "") {
-      return res.status(400).json({
-        success: false,
-        message: `subbranch is required for ${item.qualification || "this qualification"} at index ${i}`
-      });
-    }
-  }
-
-  // yearPassing is ALWAYS required
-  if (!item.yearPassing || item.yearPassing.trim() === "") {
-    return res.status(400).json({
-      success: false,
-      message: `yearPassing is required in education item at index ${i}`
+    educationArray.forEach((item, index) => {
+      const key = `certificateAttachment_${index}`;
+      if (attachments[key]) {
+        item.certificateAttachment = attachments[key];
+      } else if (item.certificateAttachment) {
+        // keep existing file when updating
+        item.certificateAttachment = item.certificateAttachment;
+      }
     });
-  }
-}
 
-
-// ...existing code...
-
+    // Create or update record
     let record = await Qualification.findOne({ draftId });
     if (!record) record = new Qualification({ draftId });
 
-    // ❌ REMOVED — ODAttachment is NO LONGER required for B.Tech
-    // (no validation here, fully optional)
-
-    // Attach certificates
-    educationArray.forEach((item) => {
-      if (attachments[item.qualification]) {
-        item.certificateAttachment = attachments[item.qualification];
-      }
-    });
-
     record.education = educationArray;
-
     await record.save();
+
+    // Sync into onboarding master document
+    await syncCandidateSection(draftId, "qualification", record.toObject());
 
     return res.status(200).json({
       success: true,
@@ -289,7 +198,6 @@ for (let i = 0; i < educationArray.length; i++) {
   }
 };
 
-
 exports.saveOfferDetails = async (req, res) => {
   try {
     const { draftId, offerDetails } = req.body;
@@ -301,16 +209,16 @@ exports.saveOfferDetails = async (req, res) => {
       });
     }
 
-    // Parse offerDetails if it is a string
+    // Parse offerDetails string if necessary
     let parsedDetails;
     try {
-      parsedDetails = typeof offerDetails === "string" 
-        ? JSON.parse(offerDetails) 
+      parsedDetails = typeof offerDetails === "string"
+        ? JSON.parse(offerDetails)
         : offerDetails;
     } catch {
       return res.status(400).json({
         success: false,
-        message: "Invalid JSON format in offerDetails"
+        message: "Invalid JSON format for offerDetails"
       });
     }
 
@@ -322,11 +230,11 @@ exports.saveOfferDetails = async (req, res) => {
       department,
       location,
       interviewRemarks
-    } = parsedDetails;
+    } = parsedDetails || {};
 
-    // Convert uploaded offer letter → Base64
+    // File upload handling
     let attachment = null;
-    if (req.files && req.files.length > 0) {
+    if (req.files?.length > 0) {
       const file = req.files[0];
       attachment = {
         fileName: file.originalname,
@@ -340,7 +248,7 @@ exports.saveOfferDetails = async (req, res) => {
     let record = await OfferDetails.findOne({ draftId });
     if (!record) record = new OfferDetails({ draftId });
 
-    // Save all offerDetails fields
+    // Assign new values in all cases
     record.offerDate = offerDate;
     record.dateOfJoining = dateOfJoining;
     record.employeeId = employeeId;
@@ -355,9 +263,16 @@ exports.saveOfferDetails = async (req, res) => {
 
     await record.save();
 
+    // 🔹 Sync to OnboardedCandidate (The most important part)
+    await syncCandidateSection(
+      draftId,
+      "offerDetails",
+      record.toObject()
+    );
+
     return res.status(200).json({
       success: true,
-      message: "Offer details saved successfully",
+      message: "Offer details saved & synced successfully",
       draftId,
       data: record
     });
@@ -378,19 +293,22 @@ exports.saveBankDetails = async (req, res) => {
     const { draftId, bankDetails } = req.body;
 
     if (!draftId) {
-      return res.status(400).json({ success: false, message: "draftId is required" });
+      return res.status(400).json({
+        success: false,
+        message: "draftId is required"
+      });
     }
 
-    // Parse bankDetails JSON
-    let parsedBankDetails;
+    // Parse JSON from string if required
+    let parsedDetails;
     try {
-      parsedBankDetails = typeof bankDetails === "string"
+      parsedDetails = typeof bankDetails === "string"
         ? JSON.parse(bankDetails)
         : bankDetails;
     } catch {
       return res.status(400).json({
         success: false,
-        message: "Invalid JSON format in bankDetails"
+        message: "Invalid JSON format for bankDetails"
       });
     }
 
@@ -400,7 +318,7 @@ exports.saveBankDetails = async (req, res) => {
       accountNumber,
       confirmAccountNumber,
       ifscCode
-    } = parsedBankDetails;
+    } = parsedDetails || {};
 
     if (accountNumber !== confirmAccountNumber) {
       return res.status(400).json({
@@ -409,9 +327,9 @@ exports.saveBankDetails = async (req, res) => {
       });
     }
 
-    // Convert uploaded file -> Base64
+    // Convert uploaded attachment
     let attachment = null;
-    if (req.files && req.files.length > 0) {
+    if (req.files?.length > 0) {
       const file = req.files[0];
       attachment = {
         fileName: file.originalname,
@@ -427,19 +345,29 @@ exports.saveBankDetails = async (req, res) => {
 
     record.bankName = bankName;
     record.branchName = branchName;
+
     record.setBankData(accountNumber, ifscCode);
 
-    if (attachment) {
-      record.bankAttachment = attachment;
-    }
+    // Keep existing attachment when editing
+    if (attachment) record.bankAttachment = attachment;
 
     await record.save();
 
+    // Decrypt data for PDF and UI sync
+    const bankSyncData = {
+      ...record.toObject(),
+      accountNumber: record.getAccountNumber(),
+      ifscCode: record.getIfscCode()
+    };
+
+    // 🔹 Sync into OnboardedCandidate master doc
+    await syncCandidateSection(draftId, "bankDetails", bankSyncData);
+
     return res.status(200).json({
       success: true,
-      message: "Bank details saved successfully",
+      message: "Bank details saved & synced successfully",
       draftId,
-      data: record
+      data: bankSyncData
     });
 
   } catch (error) {
@@ -460,19 +388,24 @@ exports.saveEmployeeDetails = async (req, res) => {
     const { draftId, employmentDetails } = req.body;
 
     if (!draftId) {
-      return res.status(400).json({ success: false, message: "draftId is required" });
+      return res.status(400).json({ success: false, message: "draftId required" });
     }
 
     if (!employmentDetails) {
-      return res.status(400).json({ success: false, message: "employmentDetails is required" });
+      return res.status(400).json({ success: false, message: "employmentDetails required" });
     }
 
-    // Parse JSON text → object
+    // Parse JSON input
     let parsedDetails;
     try {
-      parsedDetails = typeof employmentDetails === "string" ? JSON.parse(employmentDetails) : employmentDetails;
+      parsedDetails = typeof employmentDetails === "string"
+        ? JSON.parse(employmentDetails)
+        : employmentDetails;
     } catch {
-      return res.status(400).json({ success: false, message: "Invalid JSON in employmentDetails" });
+      return res.status(400).json({
+        success: false,
+        message: "Invalid JSON format in employmentDetails"
+      });
     }
 
     const {
@@ -489,25 +422,22 @@ exports.saveEmployeeDetails = async (req, res) => {
       experienceRemarks
     } = parsedDetails;
 
-    // Build file attachments list
-    const attachmentList = [];
-    if (req.files?.length) {
-      req.files.forEach(file => {
-        attachmentList.push({
-          fileName: file.originalname,
-          base64: file.buffer.toString("base64"),
-          mimeType: file.mimetype,
-          fileSize: file.size,
-          uploadedAt: new Date(),
-        });
-      });
-    }
+    // Convert uploaded files to Base64
+    const attachmentList = (req.files || []).map(file => ({
+      fileName: file.originalname,
+      base64: file.buffer.toString("base64"),
+      mimeType: file.mimetype,
+      fileSize: file.size,
+      uploadedAt: new Date(),
+    }));
 
     let record = await EmploymentDetails.findOne({ draftId });
     if (!record) record = new EmploymentDetails({ draftId });
 
+    // Common Field
     record.employmentType = employmentType;
 
+    // Fresher Case
     if (employmentType === "Fresher") {
       record.fresherCtc = fresherCtc;
       record.hiredRole = hiredRole;
@@ -516,8 +446,11 @@ exports.saveEmployeeDetails = async (req, res) => {
       if (attachmentList.length > 0) {
         record.offerLetterAttachment = attachmentList[0];
       }
+
+      record.experiences = [];
     }
 
+    // Experience Case
     if (employmentType === "Experience") {
       record.experiences = [{
         isExEmployee,
@@ -527,17 +460,29 @@ exports.saveEmployeeDetails = async (req, res) => {
         durationTo,
         offeredCTC,
         experienceRemarks,
-        payslipAttachments: attachmentList,
+        payslipAttachments: attachmentList
       }];
+
+      // Remove fresher-only fields if switching type
+      record.fresherCtc = undefined;
+      record.hiredRole = undefined;
+      record.offerLetterAttachment = undefined;
     }
 
     await record.save();
 
+    // 🔹 Sync into OnboardedCandidate final doc
+    await syncCandidateSection(
+      draftId,
+      "employmentDetails",
+      record.toObject()
+    );
+
     return res.status(200).json({
       success: true,
-      message: "Employment details saved successfully",
+      message: "Employment details saved & synced successfully",
       draftId,
-      data: record,
+      data: record
     });
 
   } catch (error) {
@@ -545,7 +490,7 @@ exports.saveEmployeeDetails = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to save employment details",
-      error: error.message,
+      error: error.message
     });
   }
 };
@@ -905,92 +850,92 @@ function prepareBase64Files(files = []) {
   return attachments;
 }
 
-exports.uploadAnySectionFiles = async (req, res) => {
-  try {
-    const { draftId, section } = req.body;
+// exports.uploadAnySectionFiles = async (req, res) => {
+//   try {
+//     const { draftId, section } = req.body;
 
-    if (!draftId || !section) {
-      return res.status(400).json({
-        success: false,
-        message: "draftId and section are required"
-      });
-    }
+//     if (!draftId || !section) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "draftId and section are required"
+//       });
+//     }
 
-    // Validate section
-    const Model = MODEL_MAP[section];
-    if (!Model) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid section. Allowed: basic, qualification, offer, bank, employment"
-      });
-    }
+//     // Validate section
+//     const Model = MODEL_MAP[section];
+//     if (!Model) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Invalid section. Allowed: basic, qualification, offer, bank, employment"
+//       });
+//     }
 
-    // Convert uploaded files → Base64 map (NOW using inline function)
-    const attachments = prepareBase64Files(req.files);
+//     // Convert uploaded files → Base64 map (NOW using inline function)
+//     const attachments = prepareBase64Files(req.files);
 
-    let record = await Model.findOne({ draftId });
-    if (!record) record = new Model({ draftId });
+//     let record = await Model.findOne({ draftId });
+//     if (!record) record = new Model({ draftId });
 
-    // -----------------------
-    // PAGE 1 — BASIC INFO
-    // -----------------------
-    if (section === "basic") {
-      if (attachments.aadhar) record.aadharAttachment = attachments.aadhar;
-      if (attachments.pan) record.panAttachment = attachments.pan;
-    }
+//     // -----------------------
+//     // PAGE 1 — BASIC INFO
+//     // -----------------------
+//     if (section === "basic") {
+//       if (attachments.aadhar) record.aadharAttachment = attachments.aadhar;
+//       if (attachments.pan) record.panAttachment = attachments.pan;
+//     }
 
-    // -----------------------
-    // PAGE 2 — QUALIFICATION
-    // -----------------------
-    if (section === "qualification") {
-      // Keep qualification uploads optional; do not enforce or store root-level OD/marksheet
-      // Qualification certificates are handled per education item in saveQulification
-    }
+//     // -----------------------
+//     // PAGE 2 — QUALIFICATION
+//     // -----------------------
+//     if (section === "qualification") {
+//       // Keep qualification uploads optional; do not enforce or store root-level OD/marksheet
+//       // Qualification certificates are handled per education item in saveQulification
+//     }
 
-    // -----------------------
-    // PAGE 3 — OFFER DETAILS
-    // -----------------------
-    if (section === "offer") {
-      if (attachments.offerLetter) record.offerLetterAttachment = attachments.offerLetter;
-    }
+//     // -----------------------
+//     // PAGE 3 — OFFER DETAILS
+//     // -----------------------
+//     if (section === "offer") {
+//       if (attachments.offerLetter) record.offerLetterAttachment = attachments.offerLetter;
+//     }
 
-    // -----------------------
-    // PAGE 4 — BANK DETAILS
-    // -----------------------
-    if (section === "bank") {
-      if (attachments.bankAttachment) record.bankAttachment = attachments.bankAttachment;
-    }
+//     // -----------------------
+//     // PAGE 4 — BANK DETAILS
+//     // -----------------------
+//     if (section === "bank") {
+//       if (attachments.bankAttachment) record.bankAttachment = attachments.bankAttachment;
+//     }
 
-    // -----------------------
-    // PAGE 5 — EMPLOYMENT
-    // -----------------------
-    if (section === "employment") {
-      if (!record.experiences || record.experiences.length === 0) {
-        record.experiences = [{ payslipAttachments: [] }];
-      }
+//     // -----------------------
+//     // PAGE 5 — EMPLOYMENT
+//     // -----------------------
+//     if (section === "employment") {
+//       if (!record.experiences || record.experiences.length === 0) {
+//         record.experiences = [{ payslipAttachments: [] }];
+//       }
 
-      Object.keys(attachments).forEach((key) => {
-        record.experiences[0].payslipAttachments.push(attachments[key]);
-      });
-    }
+//       Object.keys(attachments).forEach((key) => {
+//         record.experiences[0].payslipAttachments.push(attachments[key]);
+//       });
+//     }
 
-    await record.save();
+//     await record.save();
 
-    return res.status(200).json({
-      success: true,
-      message: `${section.toUpperCase()} file(s) uploaded successfully`,
-      data: record
-    });
+//     return res.status(200).json({
+//       success: true,
+//       message: `${section.toUpperCase()} file(s) uploaded successfully`,
+//       data: record
+//     });
 
-  } catch (error) {
-    console.error("Combined Upload Error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "File upload failed",
-      error: error.message
-    });
-  }
-};
+//   } catch (error) {
+//     console.error("Combined Upload Error:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "File upload failed",
+//       error: error.message
+//     });
+//   }
+// };
 
 exports.downloadSingleFile = async (req, res) => {
   try {
@@ -1224,18 +1169,15 @@ exports.downloadCandidatePDF = async (req, res) => {
     }
 
     function buildDownloadUrl(sectionKey, fileName) {
-      const baseUrl =
-        process.env.PUBLIC_WEB_URL ||
-        "https://offer-documentation.onrender.com"; // your web/API root
+  const baseUrl =
+    process.env.PUBLIC_WEB_URL ||
+    "https://offer-documentation.onrender.com";
 
-      // Use _id consistently for file routes
-      const cid = candidate._id;
+  const cid = candidate.draftId;  // Must match download API
 
-      // IMPORTANT: include /file/ in the path to match your API
-      return `${baseUrl}/api/candidate/${cid}/file/${sectionKey}/${encodeURIComponent(
-        fileName
-      )}`;
-    }
+  return `${baseUrl}/api/candidate/${cid}/${sectionKey}/${encodeURIComponent(fileName)}`;
+}
+
 
     function drawKeyValueTable(rows, opts = {}) {
       const col1Width = Math.min(Math.floor(usableWidth * 0.38), 220);

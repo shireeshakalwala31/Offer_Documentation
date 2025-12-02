@@ -56,11 +56,11 @@ router.post(
   upload.any(),
   verifyToken,updateSection
 );
-router.post(
-  "/upload-section",
-  upload.any(),             // all file types
-  verifyToken,uploadAnySectionFiles
-);
+// router.post(
+//   "/upload-section",
+//   upload.any(),             // all file types
+//   verifyToken,uploadAnySectionFiles
+// );
 
 router.get("/:id/:section/:fileName",downloadSingleFile);
 
