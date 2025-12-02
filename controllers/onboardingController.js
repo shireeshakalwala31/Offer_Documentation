@@ -535,63 +535,54 @@ exports.finalSubmit = async (req, res) => {
     if (!draftId) {
       return res.status(400).json({
         success: false,
-        message: "draftId is required for final submit"
+        message: "draftId is required"
       });
     }
 
-    // Avoid duplicate submissions
-    const already = await OnboardedCandidate.findOne({ draftId });
-    if (already) {
+    const candidate = await OnboardedCandidate.findOne({ draftId });
+
+    if (!candidate) {
+      return res.status(404).json({
+        success: false,
+        message: "Candidate not found"
+      });
+    }
+
+    if (candidate.status === "submitted") {
       return res.status(400).json({
         success: false,
         message: "This draft is already submitted"
       });
     }
 
-    // Fetch all draft pages
-    const basic = await BasicInfo.findOne({ draftId });
-    const qualification = await Qualification.findOne({ draftId });
-    const offer = await OfferDetails.findOne({ draftId });
-    const bank = await BankDetails.findOne({ draftId });
-    const employment = await EmploymentDetails.findOne({ draftId });
+    const requiredSections = [
+      "basicInfo",
+      "qualification",
+      "offerDetails",
+      "bankDetails",
+      "employmentDetails"
+    ];
 
-    // Validate required pages
-    if (!basic)
-      return res.status(400).json({ success: false, message: "Basic Info missing" });
+    for (const sec of requiredSections) {
+      if (!candidate[sec]) {
+        return res.status(400).json({
+          success: false,
+          message: `${sec} is missing. Please fill all sections.`
+        });
+      }
+    }
 
-    if (!qualification)
-      return res.status(400).json({ success: false, message: "Qualification missing" });
-
-    if (!offer)
-      return res.status(400).json({ success: false, message: "Offer Details missing" });
-
-    if (!bank)
-      return res.status(400).json({ success: false, message: "Bank Details missing" });
-
-    if (!employment)
-      return res.status(400).json({ success: false, message: "Employment Details missing" });
-
-    // Merge all pages into final record
-    const finalRecord = await OnboardedCandidate.create({
-      draftId,
-      basicInfo: basic,
-      qualification,
-      offerDetails: offer,
-      bankDetails: bank,
-      employmentDetails: employment
-    });
-
-    // Update draft pages to submitted
-    await BasicInfo.updateOne({ draftId }, { status: "submitted" });
-    await Qualification.updateOne({ draftId }, { status: "submitted" });
-    await OfferDetails.updateOne({ draftId }, { status: "submitted" });
-    await BankDetails.updateOne({ draftId }, { status: "submitted" });
-    await EmploymentDetails.updateOne({ draftId }, { status: "submitted" });
+    await OnboardedCandidate.updateOne(
+      { draftId },
+      {
+        status: "submitted",
+        submittedAt: new Date()
+      }
+    );
 
     return res.status(200).json({
       success: true,
-      message: "Onboarding completed successfully!",
-      data: finalRecord
+      message: "Onboarding successfully submitted"
     });
 
   } catch (error) {
@@ -603,6 +594,7 @@ exports.finalSubmit = async (req, res) => {
     });
   }
 };
+
 
 // GET CANDIDATES + PAGINATION + SEARCH
 exports.getCandidatesWithSearch = async (req, res) => {

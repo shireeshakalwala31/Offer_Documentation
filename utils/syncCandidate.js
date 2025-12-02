@@ -13,9 +13,12 @@ exports.syncCandidateSection = async (draftId, sectionKey, data) => {
     { draftId },
     {
       $set: {
-        [sectionKey]: data
+        [sectionKey]: data,
+        status: "draft",       // reset to draft whenever user updates
+        submittedAt: null      // submission is not final yet
       }
     },
     { upsert: true, new: true }
   );
 };
+
