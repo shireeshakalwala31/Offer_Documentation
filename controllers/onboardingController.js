@@ -37,10 +37,9 @@ exports.saveBasicInfo = async (req, res) => {
 
     let draftId = existingDraftId || BasicInfo.generateDraftId(aadharNumber, panNumber);
 
-    // Prepare attachments
     const attachments = {};
     if (req.files?.length > 0) {
-      req.files.forEach((file) => {
+      req.files.forEach(file => {
         attachments[file.fieldname] = {
           fileName: file.originalname,
           base64: file.buffer.toString("base64"),
@@ -54,15 +53,12 @@ exports.saveBasicInfo = async (req, res) => {
     let record = await BasicInfo.findOne({ draftId });
     if (!record) record = new BasicInfo({ draftId });
 
-    if (!attachments.aadhar && !record.aadharAttachment) {
+    if (!attachments.aadhar && !record.aadharAttachment)
       return res.status(400).json({ success: false, message: "aadharAttachment is required" });
-    }
 
-    if (!attachments.pan && !record.panAttachment) {
+    if (!attachments.pan && !record.panAttachment)
       return res.status(400).json({ success: false, message: "panAttachment is required" });
-    }
 
-    // Assign fields
     record.salutation = salutation;
     record.firstName = firstName;
     record.lastName = lastName;
@@ -72,35 +68,44 @@ exports.saveBasicInfo = async (req, res) => {
     record.phoneNumber = phoneNumber;
     record.gender = gender;
 
-    // Encrypt if new Aadhaar/PAN received
-    if (aadharNumber) record.setAadhar(aadharNumber);
-    if (panNumber) record.setPan(panNumber);
+    if (aadharNumber) {
+      record.setAadhar(aadharNumber);
+      record.aadharNumber = aadharNumber;
+    }
 
-    // Ensure formatted values stored for response/PDF
-    // record.aadharNumber = aadharNumber ?? record.getAadhar();
-    // record.panNumber = panNumber ?? record.getPan();
+    if (panNumber) {
+      record.setPan(panNumber);
+      record.panNumber = panNumber;
+    }
 
     if (attachments.aadhar) record.aadharAttachment = attachments.aadhar;
     if (attachments.pan) record.panAttachment = attachments.pan;
 
     await record.save();
 
-    // Sync to OnboardedCandidate
-   await syncCandidateSection(draftId, "basicInfo", record.toObject());
-
+    await syncCandidateSection(draftId, "basicInfo", {
+      ...record.toObject(),
+      aadharNumber: record.aadharNumber,
+      panNumber: record.panNumber,
+    });
 
     return res.status(200).json({
       success: true,
-      message: "Basic info saved successfully",
+      message: "Basic info saved",
       draftId,
       data: record
     });
 
   } catch (err) {
     console.error("Basic Save Error:", err);
-    return res.status(500).json({ success: false, message: "Failed to save basic info", error: err.message });
+    return res.status(500).json({
+      success: false,
+      message: "Failed to save basic info",
+      error: err.message
+    });
   }
 };
+
 
 // Qulification Controller
 exports.saveQulification = async (req, res) => {
@@ -1223,24 +1228,18 @@ exports.downloadCandidatePDF = async (req, res) => {
 
     // Try decrypt first, then fall back to multiple possible keys
     const aadharNum =
-      safeDecrypt(b.aadharEncrypted) ||
-      b.aadharNumber ||
-      b.aadhar_number ||
-      b.aadharNo ||
-      b.aadhar_no ||
-      candidate.aadharNumber ||
-      candidate.aadharNo ||
-      "";
+  safeDecrypt(b.aadharEncrypted) ||
+  b.aadharNumber ||
+  b.encryptedAadhar ||
+  candidate.basicInfo?.aadharNumber ||
+  "";
 
-    const panNum =
-      safeDecrypt(b.panEncrypted) ||
-      b.panNumber ||
-      b.pan_number ||
-      b.panNo ||
-      b.pan_no ||
-      candidate.panNumber ||
-      candidate.panNo ||
-      "";
+const panNum =
+  safeDecrypt(b.panEncrypted) ||
+  b.panNumber ||
+  b.encryptedPan ||
+  candidate.basicInfo?.panNumber ||
+  "";
 
     drawKeyValueTable([
       { label: "Salutation", value: b.salutation || "" },
@@ -1255,8 +1254,9 @@ exports.downloadCandidatePDF = async (req, res) => {
       },
       { label: "Father Name", value: b.fatherName || "" },
       { label: "Gender", value: b.gender || "" },
-      { label: "Aadhar Number", value: aadharNum || "Not Provided" },
-      { label: "PAN Number", value: panNum || "Not Provided" },
+      { label: "Aadhar Number", value: aadharNum },
+      { label: "PAN Number", value: panNum },
+
       {
         label: "Aadhar Attachment",
         value: attachmentValue(b.aadharAttachment, "basicInfo"),
