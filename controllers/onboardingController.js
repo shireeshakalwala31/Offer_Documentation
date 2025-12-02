@@ -86,7 +86,7 @@ exports.saveBasicInfo = async (req, res) => {
     await record.save();
 
     // Sync to OnboardedCandidate
-    await syncCandidateSection(draftId, "<section>", record.toObject());
+   await syncCandidateSection(draftId, "basicInfo", record.toObject());
 
 
     return res.status(200).json({
@@ -180,8 +180,7 @@ exports.saveQulification = async (req, res) => {
     await record.save();
 
     // Sync into onboarding master document
-    await syncCandidateSection(draftId, "<section>", record.toObject());
-
+    await syncCandidateSection(draftId, "qualification", record.toObject());
 
     return res.status(200).json({
       success: true,
@@ -266,8 +265,7 @@ exports.saveOfferDetails = async (req, res) => {
     await record.save();
 
     // 🔹 Sync to OnboardedCandidate (The most important part)
-    await syncCandidateSection(draftId, "<section>", record.toObject());
-
+    await syncCandidateSection(draftId, "offerDetails", record.toObject());
 
     return res.status(200).json({
       success: true,
@@ -360,8 +358,7 @@ exports.saveBankDetails = async (req, res) => {
     };
 
     // 🔹 Sync into OnboardedCandidate master doc
-   await syncCandidateSection(draftId, "<section>", record.toObject());
-
+   await syncCandidateSection(draftId, "bankDetails", record.toObject());
 
     return res.status(200).json({
       success: true,
@@ -472,7 +469,7 @@ exports.saveEmployeeDetails = async (req, res) => {
     await record.save();
 
     // 🔹 Sync into OnboardedCandidate final doc
-    await syncCandidateSection(draftId, "<section>", record.toObject());
+    await syncCandidateSection(draftId, "employmentDetails", record.toObject());
 
 
     return res.status(200).json({
