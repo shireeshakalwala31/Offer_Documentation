@@ -62,7 +62,8 @@ router.post(
 //   verifyToken,uploadAnySectionFiles
 // );
 
-router.get("/file/:id/:section/:fileName", downloadSingleFile);
+// Single file download route
+router.get("/:id/:section/:fileName", downloadSingleFile);
 
 
 router.get("/:id/pdf", verifyToken, downloadCandidatePDF);

@@ -77,8 +77,8 @@ exports.saveBasicInfo = async (req, res) => {
     if (panNumber) record.setPan(panNumber);
 
     // Ensure formatted values stored for response/PDF
-    record.aadharNumber = aadharNumber ?? record.getAadhar();
-    record.panNumber = panNumber ?? record.getPan();
+    // record.aadharNumber = aadharNumber ?? record.getAadhar();
+    // record.panNumber = panNumber ?? record.getPan();
 
     if (attachments.aadhar) record.aadharAttachment = attachments.aadhar;
     if (attachments.pan) record.panAttachment = attachments.pan;
@@ -908,25 +908,20 @@ exports.downloadSingleFile = async (req, res) => {
       qualification: ["qualification", "edu", "education"],
       offerDetails: ["offer", "offers", "offer-details"],
       bankDetails: ["bank", "bank-info", "bankdetails"],
-      employmentDetails: ["employment", "employee", "work"]
+      employmentDetails: ["employment", "employee", "work", "employment-details"]
     };
 
-    let targetField = null;
-    for (const key in SECTION_KEY_MAP) {
-      if (SECTION_KEY_MAP[key].includes(section.toLowerCase())) {
-        targetField = key;
-        break;
-      }
-    }
+    let targetField = Object.keys(SECTION_KEY_MAP).find(key =>
+      SECTION_KEY_MAP[key].includes(section.toLowerCase())
+    );
 
     if (!targetField) {
       return res.status(400).json({ success: false, message: "Invalid section" });
     }
 
-    // Fetch candidate using draftId or _id
     let candidate =
-      (await OnboardedCandidate.findOne({ draftId: id }).lean()) ||
-      (await OnboardedCandidate.findById(id).lean());
+      await OnboardedCandidate.findOne({ draftId: id }).lean() ||
+      await OnboardedCandidate.findById(id).lean();
 
     if (!candidate) {
       return res.status(404).json({ success: false, message: "Candidate not found" });
@@ -945,12 +940,8 @@ exports.downloadSingleFile = async (req, res) => {
     }
 
     if (targetField === "qualification") {
-      for (const edu of secObj.education || []) {
-        if (edu.certificateAttachment?.fileName === decodedFileName) {
-          file = edu.certificateAttachment;
-          break;
-        }
-      }
+      file = secObj.education?.flatMap(e => e.certificateAttachment || [])
+        .find(f => f.fileName === decodedFileName);
     }
 
     if (targetField === "offerDetails") {
@@ -971,11 +962,8 @@ exports.downloadSingleFile = async (req, res) => {
           file = exp.offerLetterAttachment;
           break;
         }
-        const payslip = exp.payslipAttachments?.find(f => f.fileName === decodedFileName);
-        if (payslip) {
-          file = payslip;
-          break;
-        }
+        file = exp.payslipAttachments?.find(f => f.fileName === decodedFileName);
+        if (file) break;
       }
     }
 
@@ -989,19 +977,17 @@ exports.downloadSingleFile = async (req, res) => {
       "Content-Disposition": `attachment; filename="${file.fileName}"`
     });
 
-    return res.send(buffer);
+    res.send(buffer);
 
   } catch (err) {
     console.error("Download Error:", err);
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: "Download failed",
       error: err.message
     });
   }
 };
-
-
 
 
 // Convert base64 → buffer
@@ -1144,11 +1130,12 @@ exports.downloadCandidatePDF = async (req, res) => {
     process.env.PUBLIC_WEB_URL ||
     "https://offer-documentation.onrender.com";
 
-  const cid = candidate.draftId;  // Must match download API
+  const cid = candidate.draftId || candidate._id;
 
-  return `${baseUrl}/api/candidate/${cid}/${sectionKey}/${encodeURIComponent(fileName)}`;
+  return `${baseUrl}/api/candidate/${cid}/${sectionKey}/${encodeURIComponent(
+    fileName
+  )}`;
 }
-
 
     function drawKeyValueTable(rows, opts = {}) {
       const col1Width = Math.min(Math.floor(usableWidth * 0.38), 220);
@@ -1406,95 +1393,62 @@ exports.downloadCandidatePDF = async (req, res) => {
     ]);
 
     // ------------------------------------------------------------------
-    // EMPLOYMENT DETAILS
-    // ------------------------------------------------------------------
-    drawSectionHeader("Employment Details");
+// EMPLOYMENT DETAILS
+// ------------------------------------------------------------------
+drawSectionHeader("Employment Details");
 
-    const emp =
-      candidate.employmentDetails ||
-      candidate.employment ||
-      candidate.employeeDetails ||
-      {};
+const emp = candidate.employmentDetails || {};
+const experiences = Array.isArray(emp.experiences) ? emp.experiences : [];
+const empType = emp.employmentType || (experiences.length ? "Experience" : "Fresher");
 
-    const empTypeRaw =
-      emp.employmentType || emp.experienceType || emp.type || "";
-    const experiences = Array.isArray(emp.experiences)
-      ? emp.experiences
-      : [];
-
-    const empType =
-      empTypeRaw ||
-      (experiences.length > 0 ? "Experience" : "Fresher");
-
-    if (empType === "Fresher") {
-      drawKeyValueTable([
-        { label: "Employment Type", value: empType },
-        { label: "Role Hired", value: emp.hiredRole || "" },
-        { label: "Offered CTC", value: emp.fresherCtc || emp.offeredCtc || "" },
-        { label: "General Remarks", value: emp.generalRemarks || "" },
-        {
-          label: "Offer Letter",
-          value: attachmentValue(
-            emp.offerLetterAttachment || emp.offerLetter,
-            "employmentDetails"
-          ),
-        },
-      ]);
-    } else {
-      const exp = experiences.length ? experiences[0] : null;
-
-      if (exp) {
-        drawKeyValueTable([
-          { label: "Employment Type", value: empType || "Experience" },
-          { label: "Company", value: exp.companyName || "" },
-          {
-            label: "Duration",
-            value: `${exp.durationFrom || ""} → ${exp.durationTo || ""}`,
-          },
-          { label: "Joined CTC", value: exp.joinedCtc || "" },
-          { label: "Offered CTC", value: exp.offeredCtc || "" },
-          { label: "Reason for Leaving", value: exp.reasonForLeaving || "" },
-          {
-            label: "General Remarks",
-            value: exp.generalRemarks || emp.generalRemarks || "",
-          },
-          {
-            label: "Offer Letter",
-            value: attachmentValue(
-              exp.offerLetterAttachment || exp.offerLetter,
-              "employmentDetails"
-            ),
-          },
-        ]);
-
-        const pays = Array.isArray(exp.payslipAttachments)
-          ? exp.payslipAttachments
-          : [];
-
-        if (pays.length > 0) {
-          pays.forEach((p, i) => {
-            drawKeyValueTable([
-              {
-                label: `Payslip ${i + 1}`,
-                value: attachmentValue(p, "employmentDetails"),
-              },
-            ]);
-          });
-        } else {
-          drawKeyValueTable([{ label: "Payslips", value: "None" }]);
-        }
-      } else {
-        // No experience records but marked Experience
-        drawKeyValueTable([
-          { label: "Employment Type", value: empType || "Experience" },
-          { label: "Details", value: "No experience records found" },
-        ]);
-      }
+if (empType === "Fresher") {
+  drawKeyValueTable([
+    { label: "Employment Type", value: empType },
+    { label: "Role Hired", value: emp.hiredRole || "" },
+    { label: "Offered CTC", value: emp.fresherCtc || "" },
+    { label: "General Remarks", value: emp.generalRemarks || "" },
+    {
+      label: "Offer Letter",
+      value: attachmentValue(emp.offerLetterAttachment, "employmentDetails"),
     }
+  ]);
+}
 
-    // ------------------------------------------------------------------
-    // FINALIZE
-    // ------------------------------------------------------------------
+// Experience Case: Show each field separately and clearly in rows
+if (empType === "Experience") {
+  const exp = experiences[0];
+
+  drawKeyValueTable([
+    { label: "Employment Type", value: empType },
+    { label: "Company Name", value: exp?.companyName || "" },
+   { label: "Joined CTC", value: exp.joiningCTC || exp.joinedCtc || "" },
+   { label: "Offered CTC", value: exp.offeredCTC || exp.offeredCtc || "" },
+    { label: "Duration From", value: exp?.durationFrom || "" },
+    { label: "Duration To", value: exp?.durationTo || "" },
+    { label: "Reason for Leaving", value: exp?.experienceRemarks || "" },
+    {
+      label: "General Remarks",
+      value: exp?.experienceRemarks || emp.generalRemarks || ""
+    },
+    {
+      label: "Offer Letter",
+      value: attachmentValue(exp?.offerLetterAttachment, "employmentDetails"),
+    }
+  ]);
+
+  // Payslips, each in its own row
+  if (Array.isArray(exp?.payslipAttachments)) {
+    exp.payslipAttachments.forEach((p, i) => {
+      drawKeyValueTable([
+        {
+          label: `Payslip ${i + 1}`,
+          value: attachmentValue(p, "employmentDetails")
+        }
+      ]);
+    });
+  }
+}
+
     doc.end();
   } catch (err) {
     console.error("PDF generation error:", err);
