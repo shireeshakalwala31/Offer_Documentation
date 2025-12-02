@@ -86,7 +86,8 @@ exports.saveBasicInfo = async (req, res) => {
     await record.save();
 
     // Sync to OnboardedCandidate
-    await syncCandidateSection(draftId, "basicInfo", record.toObject());
+    await syncCandidateSection(draftId, "<section>", record.toObject());
+
 
     return res.status(200).json({
       success: true,
@@ -179,7 +180,8 @@ exports.saveQulification = async (req, res) => {
     await record.save();
 
     // Sync into onboarding master document
-    await syncCandidateSection(draftId, "qualification", record.toObject());
+    await syncCandidateSection(draftId, "<section>", record.toObject());
+
 
     return res.status(200).json({
       success: true,
@@ -264,11 +266,8 @@ exports.saveOfferDetails = async (req, res) => {
     await record.save();
 
     // 🔹 Sync to OnboardedCandidate (The most important part)
-    await syncCandidateSection(
-      draftId,
-      "offerDetails",
-      record.toObject()
-    );
+    await syncCandidateSection(draftId, "<section>", record.toObject());
+
 
     return res.status(200).json({
       success: true,
@@ -361,7 +360,8 @@ exports.saveBankDetails = async (req, res) => {
     };
 
     // 🔹 Sync into OnboardedCandidate master doc
-    await syncCandidateSection(draftId, "bankDetails", bankSyncData);
+   await syncCandidateSection(draftId, "<section>", record.toObject());
+
 
     return res.status(200).json({
       success: true,
@@ -472,11 +472,8 @@ exports.saveEmployeeDetails = async (req, res) => {
     await record.save();
 
     // 🔹 Sync into OnboardedCandidate final doc
-    await syncCandidateSection(
-      draftId,
-      "employmentDetails",
-      record.toObject()
-    );
+    await syncCandidateSection(draftId, "<section>", record.toObject());
+
 
     return res.status(200).json({
       success: true,
@@ -750,88 +747,63 @@ exports.deleteCandidate = async (req, res) => {
 };
 
 // Mapping sections → Mongoose Models
-const SECTION_MAP = {
-  basic: BasicInfo,
-  qualification: Qualification,
-  offer: OfferDetails,
-  bank: BankDetails,
-  employment: EmploymentDetails
+const SECTION_FIELD_MAP = {
+  basic: "basicInfo",
+  qualification: "qualification",
+  offer: "offerDetails",
+  bank: "bankDetails",
+  employment: "employmentDetails"
 };
 
 exports.updateSection = async (req, res) => {
   try {
-    const { draftId, section } = req.body;
+    const { draftId, section, data } = req.body;
 
-    if (!draftId || !section) {
+    if (!draftId || !section || !data) {
       return res.status(400).json({
         success: false,
-        message: "draftId and section are required"
+        message: "draftId, section and data are required"
       });
     }
 
-    const Model = SECTION_MAP[section];
-
-    if (!Model) {
+    const field = SECTION_FIELD_MAP[section];
+    if (!field) {
       return res.status(400).json({
         success: false,
-        message: "Invalid section. Allowed: basic, qualification, offer, bank, employment"
+        message: "Invalid section name"
       });
     }
 
-    // Prepare Base64 files
-    const attachments = {};
-    if (req.files && req.files.length > 0) {
-      req.files.forEach(file => {
-        attachments[file.fieldname] = {
-          fileName: file.originalname,
-          base64: file.buffer.toString("base64"),
-          mimeType: file.mimetype,
-          fileSize: file.size,
-          uploadedAt: new Date()
-        };
-      });
-    }
-
-    // Find section record
-    let record = await Model.findOne({ draftId });
-    if (!record) record = new Model({ draftId });
-
-    // Update text fields automatically
-    Object.keys(req.body).forEach(k => {
-      if (k !== "section" && k !== "draftId") {
-        record[k] = req.body[k];
-      }
-    });
-
-    // Add attachments automatically
-    Object.keys(attachments).forEach(key => {
-      record[key] = attachments[key];
-    });
-
-    await record.save();
+    const updated = await OnboardedCandidate.findOneAndUpdate(
+      { draftId },
+      { $set: { [field]: data } },
+      { new: true, upsert: true }
+    );
 
     return res.status(200).json({
       success: true,
-      message: `${section.toUpperCase()} section updated successfully`,
-      data: record
+      message: `${section} updated successfully`,
+      data: updated
     });
 
   } catch (error) {
+    console.error("updateSection Error:", error);
     return res.status(500).json({
       success: false,
-      message: "Failed to update section",
+      message: "Update failed",
       error: error.message
     });
   }
 };
+
 // Map sections → Mongoose Models
-const MODEL_MAP = {
-  basic: BasicInfo,
-  qualification: Qualification,
-  offer: OfferDetails,
-  bank: BankDetails,
-  employment: EmploymentDetails
-};
+// const MODEL_MAP = {
+//   basic: BasicInfo,
+//   qualification: Qualification,
+//   offer: OfferDetails,
+//   bank: BankDetails,
+//   employment: EmploymentDetails
+// };
 
 // 🔥 Base64 Conversion Directly Here (INSTEAD of fileHandler.js)
 function prepareBase64Files(files = []) {
@@ -942,39 +914,49 @@ exports.downloadSingleFile = async (req, res) => {
     const { id, section, fileName } = req.params;
     const decodedFileName = decodeURIComponent(fileName);
 
-    // 1. Section mapping for OnboardedCandidate fields
-    const SECTION_MAP = {
-      basic: "basicInfo",
-      qualification: "qualification",
-      offer: "offerDetails",
-      bank: "bankDetails",
-      employment: "employmentDetails"
+    const SECTION_KEY_MAP = {
+      basicInfo: ["basic", "basicinfo", "basic-info", "basic_information"],
+      qualification: ["qualification", "edu", "education"],
+      offerDetails: ["offer", "offers", "offer-details"],
+      bankDetails: ["bank", "bank-info", "bankdetails"],
+      employmentDetails: ["employment", "employee", "work"]
     };
 
-    const mappedSection = SECTION_MAP[section];
-    if (!mappedSection) {
-      return res.status(400).json({ success: false, message: "Invalid section name" });
+    let targetField = null;
+    for (const key in SECTION_KEY_MAP) {
+      if (SECTION_KEY_MAP[key].includes(section.toLowerCase())) {
+        targetField = key;
+        break;
+      }
     }
 
-    // 2. Find candidate only in OnboardedCandidate model
-    const candidate = await OnboardedCandidate.findOne({ draftId: id }).lean();
-    if (!candidate)
+    if (!targetField) {
+      return res.status(400).json({ success: false, message: "Invalid section" });
+    }
+
+    // Fetch candidate using draftId or _id
+    let candidate =
+      (await OnboardedCandidate.findOne({ draftId: id }).lean()) ||
+      (await OnboardedCandidate.findById(id).lean());
+
+    if (!candidate) {
       return res.status(404).json({ success: false, message: "Candidate not found" });
+    }
 
-    const sectionData = candidate[mappedSection];
-    if (!sectionData)
-      return res.status(404).json({ success: false, message: "Section not found in candidate record" });
+    const secObj = candidate[targetField];
+    if (!secObj) {
+      return res.status(404).json({ success: false, message: "Section not available" });
+    }
 
-    // 3. File search depending on section
     let file = null;
 
-    if (section === "basic") {
-      file = [sectionData.aadharAttachment, sectionData.panAttachment]
+    if (targetField === "basicInfo") {
+      file = [secObj.aadharAttachment, secObj.panAttachment]
         .find(f => f?.fileName === decodedFileName);
     }
 
-    if (section === "qualification") {
-      for (const edu of sectionData.education || []) {
+    if (targetField === "qualification") {
+      for (const edu of secObj.education || []) {
         if (edu.certificateAttachment?.fileName === decodedFileName) {
           file = edu.certificateAttachment;
           break;
@@ -982,35 +964,35 @@ exports.downloadSingleFile = async (req, res) => {
       }
     }
 
-    if (section === "offer") {
-      file = sectionData.offerLetterAttachment?.fileName === decodedFileName
-        ? sectionData.offerLetterAttachment
+    if (targetField === "offerDetails") {
+      file = secObj.offerLetterAttachment?.fileName === decodedFileName
+        ? secObj.offerLetterAttachment
         : null;
     }
 
-    if (section === "bank") {
-      file = sectionData.bankAttachment?.fileName === decodedFileName
-        ? sectionData.bankAttachment
+    if (targetField === "bankDetails") {
+      file = secObj.bankAttachment?.fileName === decodedFileName
+        ? secObj.bankAttachment
         : null;
     }
 
-    if (section === "employment") {
-      for (const exp of sectionData.experiences || []) {
-        const matchOffer = exp.offerLetterAttachment?.fileName === decodedFileName;
-        if (matchOffer) {
+    if (targetField === "employmentDetails") {
+      for (const exp of secObj.experiences || []) {
+        if (exp.offerLetterAttachment?.fileName === decodedFileName) {
           file = exp.offerLetterAttachment;
           break;
         }
-        const matchPayslip = exp.payslipAttachments?.find(f => f.fileName === decodedFileName);
-        if (matchPayslip) {
-          file = matchPayslip;
+        const payslip = exp.payslipAttachments?.find(f => f.fileName === decodedFileName);
+        if (payslip) {
+          file = payslip;
           break;
         }
       }
     }
 
-    if (!file)
+    if (!file) {
       return res.status(404).json({ success: false, message: "File not found" });
+    }
 
     const buffer = Buffer.from(file.base64, "base64");
     res.set({
@@ -1020,12 +1002,12 @@ exports.downloadSingleFile = async (req, res) => {
 
     return res.send(buffer);
 
-  } catch (error) {
-    console.error("Download Error:", error);
+  } catch (err) {
+    console.error("Download Error:", err);
     return res.status(500).json({
       success: false,
-      message: "Failed to download file",
-      error: error.message
+      message: "Download failed",
+      error: err.message
     });
   }
 };
