@@ -243,7 +243,7 @@ exports.downloadAppraisalLetter = async (req, res) => {
 
     // If missing, regenerate it
     if (!fs.existsSync(pdfPath)) {
-      logger.info("Appraisal PDF not found — generating now...");
+      console.log("Appraisal PDF not found — generating now...");
       await generateAppraisalPDF(letter);
     }
 
