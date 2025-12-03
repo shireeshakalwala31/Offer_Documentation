@@ -3,6 +3,21 @@ const path = require("path");
 const fs = require("fs");
 const generateAppraisalPDF = require("../utils/appraisalPdfGenerator");
 
+// Validate and convert date string safely
+const parseDate = (date, fieldName) => {
+  if (!date) return null;
+
+  const parsed = new Date(date);
+
+  if (isNaN(parsed.getTime())) {
+    throw new Error(`Invalid date format for ${fieldName}`);
+  }
+
+  return parsed;
+};
+
+
+
 // Create a new appraisal Letter
 exports.createAppraisalletter = async (req, res) => {
   try {
@@ -22,27 +37,27 @@ exports.createAppraisalletter = async (req, res) => {
       !dateOfJoining ||
       !newSalary ||
       !salaryInWords ||
-      !promotedRole ||
-      !issueDate
+      !promotedRole
     ) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    // Check if employee already exists
     const existingAppraisal = await Appraisal.findOne({ employeeId });
 
     if (existingAppraisal) {
-      return res.status(400).json({ message: "This employee appraisal already exists." });
+      return res.status(400).json({
+        message: "This employee appraisal already exists."
+      });
     }
 
     const newAppraisal = new Appraisal({
       employeeName,
       employeeId,
-      dateOfJoining: parseDate(dateOfJoining),
+      dateOfJoining: parseDate(dateOfJoining, "dateOfJoining"),
       newSalary,
       salaryInWords,
       promotedRole,
-      issueDate: parseDate(issueDate)
+      issueDate: parseDate(issueDate, "issueDate") || new Date()
     });
 
     await newAppraisal.save();
@@ -59,11 +74,11 @@ exports.createAppraisalletter = async (req, res) => {
   } catch (error) {
     console.error("Error creating appraisal Letter:", error);
     res.status(500).json({
-      message: "Internal Server Error",
-      error: error.message
+      message: error.message || "Internal Server Error"
     });
   }
 };
+
 
 
 // update an Appraisal Letter
