@@ -71,6 +71,7 @@ const generateAppraisalPDF = async (data) => {
       companyName: data.companyName || "Amazon IT Solutions",
       logoPath,
       letterheadPath,
+      signaturePath 
     });
 
     // Inject Letterhead Background

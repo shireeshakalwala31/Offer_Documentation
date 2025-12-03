@@ -9,7 +9,7 @@ router.delete('/:id',verifyToken,deleteAppraisalLetter)
 router.get("/all", verifyToken,getAllAppraisalLetters);
 router.get("/:id", verifyToken, getAppraisalLetterById);
 router.post("/generate-pdf/:id", verifyToken,generatePDF);
-router.get("/download/:fileName", verifyToken, downloadAppraisalLetter);
+router.get("/download/:id", verifyToken, downloadAppraisalLetter);
 
 
 
