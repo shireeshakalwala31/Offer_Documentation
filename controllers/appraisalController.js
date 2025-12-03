@@ -225,48 +225,45 @@ exports.downloadAppraisalLetter = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Find appraisal record
     const letter = await Appraisal.findById(id);
     if (!letter) {
-      return res.status(404).json({
-        message: "Appraisal Letter not found"
-      });
+      return res.status(404).json({ message: "Appraisal Letter not found" });
     }
 
-    // Construct file path
     const uploadsDir = path.resolve(__dirname, "../generated_pdfs");
-    const safeName = letter.employeeName.replace(/\s+/g, "_");
-    const pdfPath = path.join(
-      uploadsDir,
-      `Appraisal_Letter_${safeName}.pdf`
-    );
 
-    // If missing, regenerate it
+    const safeName = letter.employeeName.replace(/\s+/g, "_");
+    const companySafe = (letter.companyName || "Amazon IT Solutions")
+      .replace(/\s+/g, "_")
+      .replace(/[^a-zA-Z0-9_]/g, "");
+
+    const fileName = `Appraisal_Letter_${safeName}_${companySafe}.pdf`;
+    const pdfPath = path.join(uploadsDir, fileName);
+
+    // If missing → regenerate
     if (!fs.existsSync(pdfPath)) {
-      console.log("Appraisal PDF not found — generating now...");
       await generateAppraisalPDF(letter);
     }
 
-    // Headers
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader(
-      "Content-Disposition",
-      `attachment; filename=Appraisal_Letter_${safeName}.pdf`
-    );
-
+    // Stream file
     const fileStream = fs.createReadStream(pdfPath);
+    fileStream.on("error", () => {
+      return res.status(500).json({ message: "Failed to read PDF file" });
+    });
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename=${fileName}`);
+
     fileStream.pipe(res);
 
-    console.log(`Appraisal PDF Downloaded: ${pdfPath}`);
-
   } catch (error) {
-    console.error("Error downloading appraisal PDF:", error);
     res.status(500).json({
       message: "Server Error",
       error: error.message
     });
   }
 };
+
 
 exports.generatePDF = async (req, res) => {
   try {
