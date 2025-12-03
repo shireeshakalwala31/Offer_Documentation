@@ -53,6 +53,7 @@ const companyRoutes = require("./routes/companyRoutes");
 const relievingRoutes = require("./routes/relievingRoutes");
 const appointmentRoutes = require("./routes/appointmentRoutes");
 const onboardingRoutes = require("./routes/onboardingRoutes");
+const appraisalRoutes=require('./routes/appraisalRoutes')
 
 // API Routes
 app.use("/api/offer", offerRoutes);
@@ -60,6 +61,7 @@ app.use("/api/offer/company", companyRoutes);
 app.use("/api/relieving", relievingRoutes);
 app.use("/api/appointment", appointmentRoutes);
 app.use("/api/candidate", onboardingRoutes);
+app.use("/api/appraisal", appraisalRoutes);
 
 // MongoDB
 mongoose

@@ -17,7 +17,7 @@ const generateRelievingPDF = async (data) => {
     const templatePath = path.join(__dirname, "../templates/relieving.ejs");
     const assetsDir = path.resolve(__dirname, "../assets");
 
-    // === EMBED LOGO ===
+    // === EMBED LOGO ===a
     const logoCandidates = [
       path.join(assetsDir, "image.png"),
       path.join(assetsDir, "Amazon-Logo1.png"),

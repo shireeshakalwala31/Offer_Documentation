@@ -1,0 +1,240 @@
+const Appraisal = require("../models/AppraisalLetter");
+const path = require("path");
+const fs = require("fs");
+const generateAppraisalPDF = require("../utils/appraisalPdfGenerator");
+
+// Create a new appraisal Letter
+exports.createAppraisalletter=async(req,res)=>{
+    try{
+        const {employeeName,employeeId,dateOfJoining,newSalary,salaryInWords,promotedRole}=req.body;
+        if(!employeeName || !employeeId || !dateOfJoining || !newSalary || !salaryInWords || !promotedRole){
+            return res.status(400).json({message:"All fields are required"})
+        }
+        const exstingAppraisal=await Appraisal.findOne({employeeId});
+        if(!exstingAppraisal){
+            return res.status(404).json({message:"This employee appraisal already exists."})
+        }
+        const newAppraisal=new Appraisal({
+            employeeName,
+            employeeId,
+            dateOfJoining: parseDate(dateOfJoining),
+            newSalary,
+            salaryInWords,
+            promotedRole,
+            issueDate: parseDate(issueDate)
+        })
+        await newAppraisal.save();
+        res.status(201).json({
+            message:"Appraisal Letter Created Successfully",
+            data:{
+                 _id: newAppraisal._id,
+                 employeeName: newAppraisal.employeeName,
+                 employeeId:newAppraisal.employeeId,
+                 
+
+            }
+        })
+
+    }catch(error){
+        console.error("Error creating appraisal Letter:",error);
+        res.status(500).json({
+            message:"Internal Server Error",
+            error:error.message
+
+        })
+
+    }
+}
+
+// update an Appraisal Letter
+exports.updateAppraisalLetter=async(req,res)=>{
+    try{
+        const {id}=req.params;
+        const {employeeName,employeeId,dateOfJoining,newSalary,salaryInWords,promotedRole,issueDate}=req.body;
+        if(!employeeName || !employeeId || !dateOfJoining || !newSalary || !salaryInWords || !promotedRole || !issueDate){
+            return res.status(400).json({
+                message:"All fields are required"
+            })
+        }
+        const exsting=await Appraisal.findOne({
+            employeeId,
+            _id:{$ne:id}
+        })
+        if(!exsting){
+            return res.status(404).json({
+                message:"Another Appraisal With this employee Id already, exists"
+            })
+        }
+        const updatedAppraisal=await Appraisal.findByIdAndUpdate(
+            id,
+            {
+                 employeeName,
+        employeeId,
+        dateOfJoining: parseDate(dateOfJoining),
+        newSalary,
+        salaryInWords,
+        promotedRole,
+        issueDate: parseDate(issueDate)
+            },
+            {new:true}
+        );
+        if(!updatedAppraisal){
+            return res.status(404).json({
+                message:"Appraisal Letter not found",
+                data:updatedAppraisal
+            })
+        }
+        res.status(200).json({
+            message:"Apprasial Letter updated Successfully",
+            data:updatedAppraisal
+        })
+
+    }catch(error){
+        console.log("Error updating appraisal Letter:",error);
+        res.status(500).json({
+            message:"Internal Server Error",
+            error:error.message
+        })
+
+    }
+}
+
+// delete an Appraisal Letter
+exports.deleteAppraisalLetter=async(req,res)=>{
+    try{
+        const {id}=req.params;
+        const deletedAppraisal=await Appraisal.findByIdAndDelete(id);
+        if(!deletedAppraisal){
+            return res.status(404).json({
+                message:"Appraisal Letter not found"
+            })
+        }
+        res.status(200).json({
+            message:"Appraisal Letter deleted successfully"
+        })
+
+    }catch(error){
+        console.log("Error Deleting appraisal letter:",error);
+        res.status(500).json({
+            message:"Internal Server Error",
+            error:error.message
+        })
+
+    }
+}
+// getAppraisalLetter By Id
+exports.getAppraisalLetterById=async(req,res)=>{
+    try{
+        const {id}=req.params;
+        const appraisalLetter=await Appraisal.findById(id);
+        if(!appraisalLetter){
+            return res.status(404).json({
+                message:"Appraisal Letter not found"
+            })
+        }
+        res.status(200).json({
+            message:"Appraisal Letter fetched Successfully",
+            data:appraisalLetter
+        })
+    }catch(error){
+        console.log("Error feching appraisal Letter by Id:",error);
+        res.status(500).json({
+            message:"Internal Server Error",
+            error:error.message
+        })
+    }
+}
+
+exports.getAllAppraisalLetters = async (req, res) => {
+  try {
+    const appraisalLetters = await Appraisal.find()
+      .select("employeeName employeeId")  // Return only required fields
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      message: "Apprasial Letters Fecthed Successfully",
+      count: appraisalLetters.length,
+      data: appraisalLetters
+    });
+
+  } catch (error) {
+    console.log("Error fetching appraisal letters:", error);
+    res.status(500).json({
+      message: "Internal Server Error",
+      error: error.message
+    });
+  }
+};
+
+exports.downloadAppraisalLetter = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Find appraisal record
+    const letter = await Appraisal.findById(id);
+    if (!letter) {
+      return res.status(404).json({
+        message: "Appraisal Letter not found"
+      });
+    }
+
+    // Construct file path
+    const uploadsDir = path.resolve(__dirname, "../generated_pdfs");
+    const safeName = letter.employeeName.replace(/\s+/g, "_");
+    const pdfPath = path.join(
+      uploadsDir,
+      `Appraisal_Letter_${safeName}.pdf`
+    );
+
+    // If missing, regenerate it
+    if (!fs.existsSync(pdfPath)) {
+      logger.info("Appraisal PDF not found — generating now...");
+      await generateAppraisalPDF(letter);
+    }
+
+    // Headers
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=Appraisal_Letter_${safeName}.pdf`
+    );
+
+    const fileStream = fs.createReadStream(pdfPath);
+    fileStream.pipe(res);
+
+    logger.info(`Appraisal PDF Downloaded: ${pdfPath}`);
+
+  } catch (error) {
+    logger.error("Error downloading appraisal PDF:", error);
+    res.status(500).json({
+      message: "Server Error",
+      error: error.message
+    });
+  }
+};
+
+exports.generatePDF = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const appraisal = await Appraisal.findById(id);
+    if (!appraisal) {
+      return res.status(404).json({
+        message: "Appraisal Letter not found"
+      });
+    }
+
+    const pdfPath = await generateAppraisalPDF(appraisal);
+
+    return res.status(200).json({
+      message: "PDF generated successfully",
+      filePath: pdfPath
+    });
+
+  } catch (error) {
+    return res.status(500).json({
+      message: "Server Error",
+      error: error.message
+    });
+  }
+};
