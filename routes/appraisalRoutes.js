@@ -4,7 +4,7 @@ const {verifyToken}=require('../middleware/authMiddleware');
 const {createAppraisalletter, updateAppraisalLetter, deleteAppraisalLetter,getAppraisalLetterById,getAllAppraisalLetters,generatePDF,downloadAppraisalLetter}=require('../controllers/appraisalController')
 
 router.post("/create", verifyToken,createAppraisalletter);
-router.put('/update/:id',verifyToken,updateAppraisalLetter)
+router.put('/:id',verifyToken,updateAppraisalLetter)
 router.delete('/:id',verifyToken,deleteAppraisalLetter)
 router.get("/all", verifyToken,getAllAppraisalLetters);
 router.get("/:id", verifyToken, getAppraisalLetterById);
