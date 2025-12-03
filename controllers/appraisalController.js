@@ -257,10 +257,10 @@ exports.downloadAppraisalLetter = async (req, res) => {
     const fileStream = fs.createReadStream(pdfPath);
     fileStream.pipe(res);
 
-    logger.info(`Appraisal PDF Downloaded: ${pdfPath}`);
+    console.log(`Appraisal PDF Downloaded: ${pdfPath}`);
 
   } catch (error) {
-    logger.error("Error downloading appraisal PDF:", error);
+    console.error("Error downloading appraisal PDF:", error);
     res.status(500).json({
       message: "Server Error",
       error: error.message

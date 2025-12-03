@@ -171,4 +171,4 @@ if (foundSignature) {
 module.exports = generateAppraisalPDF;
 
 
-module.exports = generateAppraisalPDF;
+
