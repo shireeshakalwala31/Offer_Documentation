@@ -4,47 +4,67 @@ const fs = require("fs");
 const generateAppraisalPDF = require("../utils/appraisalPdfGenerator");
 
 // Create a new appraisal Letter
-exports.createAppraisalletter=async(req,res)=>{
-    try{
-        const {employeeName,employeeId,dateOfJoining,newSalary,salaryInWords,promotedRole}=req.body;
-        if(!employeeName || !employeeId || !dateOfJoining || !newSalary || !salaryInWords || !promotedRole){
-            return res.status(400).json({message:"All fields are required"})
-        }
-        const exstingAppraisal=await Appraisal.findOne({employeeId});
-        if(!exstingAppraisal){
-            return res.status(404).json({message:"This employee appraisal already exists."})
-        }
-        const newAppraisal=new Appraisal({
-            employeeName,
-            employeeId,
-            dateOfJoining: parseDate(dateOfJoining),
-            newSalary,
-            salaryInWords,
-            promotedRole,
-            issueDate: parseDate(issueDate)
-        })
-        await newAppraisal.save();
-        res.status(201).json({
-            message:"Appraisal Letter Created Successfully",
-            data:{
-                 _id: newAppraisal._id,
-                 employeeName: newAppraisal.employeeName,
-                 employeeId:newAppraisal.employeeId,
-                 
+exports.createAppraisalletter = async (req, res) => {
+  try {
+    const {
+      employeeName,
+      employeeId,
+      dateOfJoining,
+      newSalary,
+      salaryInWords,
+      promotedRole,
+      issueDate
+    } = req.body;
 
-            }
-        })
-
-    }catch(error){
-        console.error("Error creating appraisal Letter:",error);
-        res.status(500).json({
-            message:"Internal Server Error",
-            error:error.message
-
-        })
-
+    if (
+      !employeeName ||
+      !employeeId ||
+      !dateOfJoining ||
+      !newSalary ||
+      !salaryInWords ||
+      !promotedRole ||
+      !issueDate
+    ) {
+      return res.status(400).json({ message: "All fields are required" });
     }
-}
+
+    // Check if employee already exists
+    const existingAppraisal = await Appraisal.findOne({ employeeId });
+
+    if (existingAppraisal) {
+      return res.status(400).json({ message: "This employee appraisal already exists." });
+    }
+
+    const newAppraisal = new Appraisal({
+      employeeName,
+      employeeId,
+      dateOfJoining: parseDate(dateOfJoining),
+      newSalary,
+      salaryInWords,
+      promotedRole,
+      issueDate: parseDate(issueDate)
+    });
+
+    await newAppraisal.save();
+
+    res.status(201).json({
+      message: "Appraisal Letter Created Successfully",
+      data: {
+        _id: newAppraisal._id,
+        employeeName: newAppraisal.employeeName,
+        employeeId: newAppraisal.employeeId
+      }
+    });
+
+  } catch (error) {
+    console.error("Error creating appraisal Letter:", error);
+    res.status(500).json({
+      message: "Internal Server Error",
+      error: error.message
+    });
+  }
+};
+
 
 // update an Appraisal Letter
 exports.updateAppraisalLetter=async(req,res)=>{

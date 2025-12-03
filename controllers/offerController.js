@@ -391,8 +391,6 @@ exports.downloadOfferLetter = async (req, res) => {
   }
 };
 
-
-
 //send-email
 exports.sendOfferLetterEmail=async(req,res)=>{
     try{
