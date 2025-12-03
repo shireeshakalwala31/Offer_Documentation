@@ -82,57 +82,77 @@ exports.createAppraisalletter = async (req, res) => {
 
 
 // update an Appraisal Letter
-exports.updateAppraisalLetter=async(req,res)=>{
-    try{
-        const {id}=req.params;
-        const {employeeName,employeeId,dateOfJoining,newSalary,salaryInWords,promotedRole,issueDate}=req.body;
-        if(!employeeName || !employeeId || !dateOfJoining || !newSalary || !salaryInWords || !promotedRole || !issueDate){
-            return res.status(400).json({
-                message:"All fields are required"
-            })
-        }
-        const exsting=await Appraisal.findOne({
-            employeeId,
-            _id:{$ne:id}
-        })
-        if(!exsting){
-            return res.status(404).json({
-                message:"Another Appraisal With this employee Id already, exists"
-            })
-        }
-        const updatedAppraisal=await Appraisal.findByIdAndUpdate(
-            id,
-            {
-                 employeeName,
+exports.updateAppraisalLetter = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      employeeName,
+      employeeId,
+      dateOfJoining,
+      newSalary,
+      salaryInWords,
+      promotedRole,
+      issueDate
+    } = req.body;
+
+    if (
+      !employeeName ||
+      !employeeId ||
+      !dateOfJoining ||
+      !newSalary ||
+      !salaryInWords ||
+      !promotedRole ||
+      !issueDate
+    ) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    // Check if another record already exists with same employeeId
+    const existing = await Appraisal.findOne({
+      employeeId,
+      _id: { $ne: id }
+    });
+
+    if (existing) {
+      return res.status(400).json({
+        message: "Another appraisal already exists with this employee ID"
+      });
+    }
+
+    const updated = await Appraisal.findByIdAndUpdate(
+      id,
+      {
+        employeeName,
         employeeId,
         dateOfJoining: parseDate(dateOfJoining),
         newSalary,
         salaryInWords,
         promotedRole,
         issueDate: parseDate(issueDate)
-            },
-            {new:true}
-        );
-        if(!updatedAppraisal){
-            return res.status(404).json({
-                message:"Appraisal Letter not found",
-                data:updatedAppraisal
-            })
-        }
-        res.status(200).json({
-            message:"Apprasial Letter updated Successfully",
-            data:updatedAppraisal
-        })
+      },
+      { new: true }
+    );
 
-    }catch(error){
-        console.log("Error updating appraisal Letter:",error);
-        res.status(500).json({
-            message:"Internal Server Error",
-            error:error.message
-        })
-
+    if (!updated) {
+      return res.status(404).json({
+        message: "Appraisal Letter not found"
+      });
     }
-}
+
+    return res.status(200).json({
+      message: "Appraisal Letter updated successfully",
+      data: updated
+    });
+
+  } catch (error) {
+    console.error("Error updating appraisal Letter:", error);
+    return res.status(500).json({
+      message: "Internal Server Error",
+      error: error.message
+    });
+  }
+};
+
 
 // delete an Appraisal Letter
 exports.deleteAppraisalLetter=async(req,res)=>{
