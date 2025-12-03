@@ -39,9 +39,9 @@
       text-align: center;
       font-weight: bold;
       text-decoration: underline;
-      font-size: 16px;
+      font-size: 14px;
       margin-top: 0;
-      margin-bottom: 50px;
+      margin-bottom: 25px;
     }
 
     .gap-after-title {
@@ -98,7 +98,7 @@
   <div class="content">
 
     <p class="date">
-      <%= new Date(issue_date).toLocaleDateString('en-GB').replace(/\//g, '-') %>
+      Date: <%= new Date(issue_date).toLocaleDateString('en-GB').replace(/\//g, '-') %>
     </p>
 
     <p class="title">ANNUAL PERFORMANCE APPRAISAL LETTER </p>
@@ -117,6 +117,7 @@
     </div>
 
     <!-- Appraisal Content -->
+     <p>Dear <%= employee_name %>,</p>
     <p class="paragraph"><strong>Congratulations!!</strong></p>
 
     <p class="paragraph">
