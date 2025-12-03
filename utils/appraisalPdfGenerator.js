@@ -56,6 +56,26 @@ const generateAppraisalPDF = async (data) => {
         foundLetterhead
       ).toString("base64")}`;
     }
+    // Embed Signature
+const signatureCandidates = [
+  path.join(assetsDir, "signature.png"),
+  path.join(assetsDir, "sign.png"),
+  path.join(assetsDir, "signature.jpg")
+];
+
+const foundSignature = signatureCandidates.find((p) => fs.existsSync(p));
+let signaturePath = "";
+
+if (foundSignature) {
+  const mime = foundSignature.endsWith(".png")
+    ? "image/png"
+    : foundSignature.endsWith(".jpg") || foundSignature.endsWith(".jpeg")
+    ? "image/jpeg"
+    : "application/octet-stream";
+
+  signaturePath = `data:${mime};base64,${fs.readFileSync(foundSignature).toString("base64")}`;
+}
+
 
     // Render HTML From EJS
     const html = await ejs.renderFile(templatePath, {
