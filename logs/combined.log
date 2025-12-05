@@ -1322,3 +1322,15 @@
 2025-12-05T12:09:42.079Z  ERROR: (node:12408) [MONGODB DRIVER] Warning: useUnifiedTopology is a deprecated option: useUnifiedTopology has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version
 2025-12-05T12:09:42.080Z  INFO: Server Running on PORT 5000
 2025-12-05T12:09:42.636Z  INFO: MongoDB connected
+2025-12-05T12:53:27.742Z  INFO: [dotenv@17.2.3] injecting env (10) from .env [2m-- tip: ⚙️  write to custom object with { processEnv: myObject }[0m
+2025-12-05T12:53:30.271Z  ERROR: (node:14988) [MONGODB DRIVER] Warning: useNewUrlParser is a deprecated option: useNewUrlParser has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version
+(Use `node --trace-warnings ...` to show where the warning was created)
+2025-12-05T12:53:30.272Z  ERROR: (node:14988) [MONGODB DRIVER] Warning: useUnifiedTopology is a deprecated option: useUnifiedTopology has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version
+2025-12-05T12:53:30.272Z  INFO: Server Running on PORT 5000
+2025-12-05T12:53:30.852Z  INFO: MongoDB connected
+2025-12-05T13:18:35.015Z  INFO: [dotenv@17.2.3] injecting env (10) from .env [2m-- tip: 🔑 add access controls to secrets: https://dotenvx.com/ops[0m
+2025-12-05T13:18:38.834Z  ERROR: (node:20284) [MONGODB DRIVER] Warning: useNewUrlParser is a deprecated option: useNewUrlParser has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version
+(Use `node --trace-warnings ...` to show where the warning was created)
+2025-12-05T13:18:38.836Z  ERROR: (node:20284) [MONGODB DRIVER] Warning: useUnifiedTopology is a deprecated option: useUnifiedTopology has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version
+2025-12-05T13:18:38.840Z  INFO: Server Running on PORT 5000
+2025-12-05T13:18:39.763Z  INFO: MongoDB connected
