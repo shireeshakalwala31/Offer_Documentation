@@ -184,7 +184,7 @@ exports.syncPFInfo=async(req,res)=>{
     if(!master){
         master=new EmployeeMaster({draftId})
     }
-    master.pf = temp.toObject();
+    master.pfDetails = temp.toObject();
     master.status = "draft";
     await master.save();
      return res.status(200).json({
@@ -265,7 +265,8 @@ exports.syncAcademicDetails = async (req, res) => {
     let master = await EmployeeMaster.findOne({ draftId });
     if (!master) master = new EmployeeMaster({ draftId });
 
-    master.academics = academicList;
+   master.academicDetails = academicList;
+
     master.status = "draft";
     await master.save();
 
@@ -336,7 +337,8 @@ exports.syncExperienceDetails = async (req, res) => {
     let master = await EmployeeMaster.findOne({ draftId });
     if (!master) master = new EmployeeMaster({ draftId });
 
-    master.experiences = experienceList;
+    master.experienceDetails = experienceList;
+
     master.status = "draft";
     await master.save();
 
@@ -413,7 +415,8 @@ exports.syncFamilyDetails = async (req, res) => {
     let master = await EmployeeMaster.findOne({ draftId });
     if (!master) master = new EmployeeMaster({ draftId });
 
-    master.family = familyList;
+    master.familyDetails = familyList;
+
     master.status = "draft";
     await master.save();
     // **********************************
@@ -483,7 +486,8 @@ exports.syncDeclarationDetails = async (req, res) => {
     let master = await EmployeeMaster.findOne({ draftId });
     if (!master) master = new EmployeeMaster({ draftId });
 
-    master.declaration = temp.toObject();
+   master.declaration = temp.toObject();
+
     master.status = "draft";
     await master.save();
     // ********************************************
@@ -536,6 +540,7 @@ exports.syncOfficeUseDetails = async (req, res) => {
     if (!master) master = new EmployeeMaster({ draftId });
 
     master.office = temp.toObject();
+
     master.status = "submitted";  // HR filled means onboarding submitted
     master.approvedBy = req.admin?._id || null;
     await master.save();
