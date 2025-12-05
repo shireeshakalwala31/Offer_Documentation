@@ -215,7 +215,6 @@ exports.syncAcademicDetails = async (req, res) => {
       });
     }
 
-    // Parsing academics array in case frontend sends JSON string
     let academicList = Array.isArray(academics)
       ? academics
       : JSON.parse(academics || "[]");
@@ -227,7 +226,7 @@ exports.syncAcademicDetails = async (req, res) => {
       });
     }
 
-    // Validate fields of each entry
+    // Validate required fields
     for (let i = 0; i < academicList.length; i++) {
       const row = academicList[i];
 
@@ -251,34 +250,30 @@ exports.syncAcademicDetails = async (req, res) => {
           message: `Pass Year required at row ${i + 1}`
         });
       }
+
+      // Ensure draftId added for each row
+      row.draftId = draftId;
     }
 
-    // SAVE OR UPDATE TEMP
-    let temp = await TempAcademic.findOne({ draftId });
+    // Remove previous entries before saving new
+    await TempAcademic.deleteMany({ draftId });
 
-    if (!temp) {
-      temp = new TempAcademic({ draftId, academics: academicList });
-    } else {
-      temp.academics = academicList;
-    }
+    // Insert new academic entries
+    await TempAcademic.insertMany(academicList);
 
-    await temp.save();
-
-    // ********* SYNC WITH MASTER DOCUMENT *********
+    // Sync to Master
     let master = await EmployeeMaster.findOne({ draftId });
-
     if (!master) master = new EmployeeMaster({ draftId });
 
     master.academics = academicList;
     master.status = "draft";
     await master.save();
-    // *********************************************
 
     return res.status(200).json({
       success: true,
       message: "Academic details saved & synced successfully",
       draftId,
-      data: temp
+      data: academicList
     });
 
   } catch (error) {
@@ -290,6 +285,7 @@ exports.syncAcademicDetails = async (req, res) => {
     });
   }
 };
+
 
 // STEP-4: Experience Save + Sync
 exports.syncExperienceDetails = async (req, res) => {
