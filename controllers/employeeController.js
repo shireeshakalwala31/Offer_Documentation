@@ -7,11 +7,12 @@ const TempFamily = require("../models/onboarding/TempFamily");
 const TempDeclaration = require("../models/onboarding/TempDeclaration");
 const TempOffice = require("../models/onboarding/TempOffice");
 
-// Step 1: Personal Information Sync
-exports.syncPersonalInfo=async(req,res)=>{
-    try{
-        const {
-            draftId,
+
+// Save and Sync Personal Info
+exports.syncPersonalInfo = async (req, res) => {
+  try {
+    const {
+      draftId,
       firstName,
       lastName,
       dateOfBirth,
@@ -19,31 +20,54 @@ exports.syncPersonalInfo=async(req,res)=>{
       aadhaar,
       pan,
       presentPhone,
-      permanentPhone
-        }=req.body;
-    if(!firstName || !lastName){
-        return res.status(400).json({success: false, message: "First & Last Name required"})
+      permanentPhone,
+      ...restFields
+    } = req.body;
+
+    if (!firstName || !lastName) {
+      return res.status(400).json({
+        success: false,
+        message: "First & Last Name required"
+      });
     }
-    if(aadhaar && !/^\d{12}$/.test(aadhaar)){
-        return res.status(400).json({success: false, message: "Invalid Aadhaar number"})
+
+    // Generate draft ID if not provided
+    const generatedDraftId = draftId && draftId.trim() !== ""
+      ? draftId
+      : `DRAFT-${uuidv4()}`;
+
+    // Aadhaar
+    if (aadhaar && !/^\d{12}$/.test(aadhaar)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Aadhaar number"
+      });
     }
-    if(pan && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan)){
-        return res.status(400).json({success: false, message: "Invalid PAN number"})
+
+    // PAN
+    if (pan && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid PAN number"
+      });
     }
-    const validatePhone=(phone)=>{
-        phone && !/^[6-9]\d{9}$/.test(phone)
-        ? "Invalid phone number"
-        : null;
-    }
+
+    // Phone validation
+    const validatePhone = (phone) => {
+      return phone && !/^[6-9]\d{9}$/.test(phone);
+    };
+
     if (validatePhone(presentPhone) || validatePhone(permanentPhone)) {
       return res.status(400).json({
         success: false,
         message: "Enter valid 10-digit phone number"
       });
     }
-    let photo=undefined;
-    if(req.file){
-        photo = {
+
+    // Photo Upload
+    let photo = undefined;
+    if (req.file) {
+      photo = {
         fileName: req.file.originalname,
         mimeType: req.file.mimetype,
         fileSize: req.file.size,
@@ -51,43 +75,63 @@ exports.syncPersonalInfo=async(req,res)=>{
         uploadedAt: new Date()
       };
     }
-    let temp =await TempPersonal.findOne({draftId});
-    if(!temp){
-        temp = new TempPersonal({ draftId, ...req.body });
+
+    // Save in Temp Model
+    let temp = await TempPersonal.findOne({ draftId: generatedDraftId });
+
+    if (!temp) {
+      temp = new TempPersonal({
+        draftId: generatedDraftId,
+        firstName,
+        lastName,
+        dateOfBirth,
+        gender,
+        aadhaar,
+        pan,
+        presentPhone,
+        permanentPhone,
+        ...restFields
+      });
     } else {
       Object.assign(temp, req.body);
     }
+
     if (photo) {
-      temp.photo = photo;
+      temp.photoUrl = photo;
     }
 
     await temp.save();
-    // Sync With Master Document 
-    let master =await EmployeeMaster.findOne({
-        draftId
-    });
-    if(!master){
-        master = new EmployeeMaster({ draftId });
+
+    // Sync to Master Model
+    let master = await EmployeeMaster.findOne({ draftId: generatedDraftId });
+
+    if (!master) {
+      master = new EmployeeMaster({
+        draftId: generatedDraftId
+      });
     }
+
     master.personal = temp.toObject();
     master.status = "draft";
     await master.save();
+
     return res.status(200).json({
       success: true,
-      message: "Personal info saved & synced",
-      draftId,
+      message: "Personal info saved & synced successfully",
+      draftId: generatedDraftId,
       data: temp
     });
-    }catch(err){
-        console.error("Personal Save Error:", err);
+
+  } catch (err) {
+    console.error("Personal Save Error:", err);
     return res.status(500).json({
       success: false,
       message: "Failed to save personal info",
       error: err.message
+    });
+  }
+};
 
-    }
-)}
-}
 
 // step 2:PF Information Sync
 exports.syncPFInfo=async(req,res)=>{
