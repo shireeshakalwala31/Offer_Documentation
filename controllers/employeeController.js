@@ -299,7 +299,6 @@ exports.syncExperienceDetails = async (req, res) => {
       });
     }
 
-    // Parse if coming as string (especially FormData cases)
     const experienceList = Array.isArray(experiences)
       ? experiences
       : JSON.parse(experiences || "[]");
@@ -307,53 +306,48 @@ exports.syncExperienceDetails = async (req, res) => {
     if (!experienceList.length) {
       return res.status(400).json({
         success: false,
-        message: "At least one experience record required or send empty array if Fresher"
+        message: "At least one experience record required"
       });
     }
 
-    // Validation Loop
+    // Validate each record
     for (let i = 0; i < experienceList.length; i++) {
-      const exp = experienceList[i];
-
-      if (!exp.employerName?.trim()) {
+      const row = experienceList[i];
+      if (!row.employerName) {
         return res.status(400).json({
           success: false,
-          message: `Employer Name missing at row ${i + 1}`
+          message: `Employer Name required at row ${i + 1}`
         });
       }
-      if (!exp.fromDate?.trim()) {
+      if (!row.fromDate) {
         return res.status(400).json({
           success: false,
-          message: `From Date missing at row ${i + 1}`
+          message: `From Date required at row ${i + 1}`
         });
       }
+      row.draftId = draftId;
     }
 
-    // SAVE OR UPDATE TEMP COLLECTION
-    let temp = await TempExperience.findOne({ draftId });
+    // Remove old experience entries and insert new ones
+    await TempExperience.deleteMany({ draftId });
+    await TempExperience.insertMany(experienceList);
 
-    if (!temp) {
-      temp = new TempExperience({ draftId, experiences: experienceList });
-    } else {
-      temp.experiences = experienceList;
-    }
-
-    await temp.save();
-
-    // ********** SYNC WITH MASTER ***********
+    // Sync to Master for UI display
     let master = await EmployeeMaster.findOne({ draftId });
     if (!master) master = new EmployeeMaster({ draftId });
 
     master.experiences = experienceList;
     master.status = "draft";
     await master.save();
-    // ***************************************
+
+    // Fetch updated list for response
+    const savedData = await TempExperience.find({ draftId }).sort({ serialNo: 1 });
 
     return res.status(200).json({
       success: true,
       message: "Experience details saved & synced successfully",
       draftId,
-      data: temp
+      data: savedData
     });
 
   } catch (error) {
@@ -377,7 +371,7 @@ exports.syncFamilyDetails = async (req, res) => {
       });
     }
 
-    // Parse array if sent as JSON string
+    // Parse array if sent as JSON string (FormData cases)
     const familyList = Array.isArray(family)
       ? family
       : JSON.parse(family || "[]");
@@ -389,7 +383,7 @@ exports.syncFamilyDetails = async (req, res) => {
       });
     }
 
-    // Validate rows
+    // Validate each member
     for (let i = 0; i < familyList.length; i++) {
       const row = familyList[i];
 
@@ -399,24 +393,21 @@ exports.syncFamilyDetails = async (req, res) => {
           message: `Name missing at row ${i + 1}`
         });
       }
+
       if (!row.relation?.trim()) {
         return res.status(400).json({
           success: false,
           message: `Relation missing at row ${i + 1}`
         });
       }
+
+      // Ensure draftId is set per row
+      row.draftId = draftId;
     }
 
-    // SAVE / UPDATE TEMP COLLECTION
-    let temp = await TempFamily.findOne({ draftId });
-
-    if (!temp) {
-      temp = new TempFamily({ draftId, family: familyList });
-    } else {
-      temp.family = familyList;
-    }
-
-    await temp.save();
+    // DELETE old family records and INSERT new ones (Approach B)
+    await TempFamily.deleteMany({ draftId });
+    await TempFamily.insertMany(familyList);
 
     // ********* SYNC TO MASTER *********
     let master = await EmployeeMaster.findOne({ draftId });
@@ -427,11 +418,14 @@ exports.syncFamilyDetails = async (req, res) => {
     await master.save();
     // **********************************
 
+    // Fetch saved family list for response
+    const savedFamily = await TempFamily.find({ draftId });
+
     return res.status(200).json({
       success: true,
       message: "Family details saved & synced successfully",
       draftId,
-      data: temp
+      data: savedFamily
     });
 
   } catch (error) {
@@ -443,6 +437,7 @@ exports.syncFamilyDetails = async (req, res) => {
     });
   }
 };
+
 
 // Step 5: Declaration Sync
 exports.syncDeclarationDetails = async (req, res) => {
