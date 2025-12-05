@@ -79,11 +79,11 @@ exports.syncPersonalInfo=async(req,res)=>{
       data: temp
     });
     }catch(err){
-        console.error("Personal Save Error:", error);
+        console.error("Personal Save Error:", err);
     return res.status(500).json({
       success: false,
       message: "Failed to save personal info",
-      error: error.message
+      error: err.message
 
     }
 )}
