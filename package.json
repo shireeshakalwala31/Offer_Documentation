@@ -26,7 +26,7 @@
     "nodemailer": "^7.0.6",
     "pdfkit": "^0.17.2",
     "puppeteer": "18.2.1",
-    "uuid": "^13.0.0",
+    "uuid": "^8.3.2",
     "winston": "^3.18.3",
     "wrap-ansi": "^9.0.2"
   },
