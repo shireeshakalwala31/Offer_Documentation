@@ -1,0 +1,650 @@
+const EmployeeMaster = require("../models/onboarding/EmployeeMaster");
+const TempPersonal = require("../models/onboarding/TempPersonal");
+const TempPF=require("../models/onboarding/TempPF")
+const TempAcademic=require("../models/onboarding/TempAcademic")
+const TempExperience = require("../models/onboarding/TempExperience");
+const TempFamily = require("../models/onboarding/TempFamily");
+const TempDeclaration = require("../models/onboarding/TempDeclaration");
+const TempOffice = require("../models/onboarding/TempOffice");
+
+// Step 1: Personal Information Sync
+exports.syncPersonalInfo=async(req,res)=>{
+    try{
+        const {
+            draftId,
+      firstName,
+      lastName,
+      dateOfBirth,
+      gender,
+      aadhaar,
+      pan,
+      presentPhone,
+      permanentPhone
+        }=req.body;
+    if(!firstName || !lastName){
+        return res.status(400).json({success: false, message: "First & Last Name required"})
+    }
+    if(aadhaar && !/^\d{12}$/.test(aadhaar)){
+        return res.status(400).json({success: false, message: "Invalid Aadhaar number"})
+    }
+    if(pan && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan)){
+        return res.status(400).json({success: false, message: "Invalid PAN number"})
+    }
+    const validatePhone=(phone)=>{
+        phone && !/^[6-9]\d{9}$/.test(phone)
+        ? "Invalid phone number"
+        : null;
+    }
+    if (validatePhone(presentPhone) || validatePhone(permanentPhone)) {
+      return res.status(400).json({
+        success: false,
+        message: "Enter valid 10-digit phone number"
+      });
+    }
+    let photo=undefined;
+    if(req.file){
+        photo = {
+        fileName: req.file.originalname,
+        mimeType: req.file.mimetype,
+        fileSize: req.file.size,
+        base64: req.file.buffer.toString("base64"),
+        uploadedAt: new Date()
+      };
+    }
+    let temp =await TempPersonal.findOne({draftId});
+    if(!temp){
+        temp = new TempPersonal({ draftId, ...req.body });
+    } else {
+      Object.assign(temp, req.body);
+    }
+    if (photo) {
+      temp.photo = photo;
+    }
+
+    await temp.save();
+    // Sync With Master Document 
+    let master =await EmployeeMaster.findOne({
+        draftId
+    });
+    if(!master){
+        master = new EmployeeMaster({ draftId });
+    }
+    master.personal = temp.toObject();
+    master.status = "draft";
+    await master.save();
+    return res.status(200).json({
+      success: true,
+      message: "Personal info saved & synced",
+      draftId,
+      data: temp
+    });
+    }catch(err){
+        console.error("Personal Save Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to save personal info",
+      error: error.message
+
+    }
+)}
+}
+
+// step 2:PF Information Sync
+exports.syncPFInfo=async(req,res)=>{
+    try{
+        const{draftId,
+      pfAccountNumber,
+      uanNumber,
+      esicNumber,
+      bankAccountNumber,
+      bankName,
+      ifscCode,
+      passportNumber,
+      passportExpiry,
+      drivingLicenseNumber,
+      drivingLicenseExpiry,
+      languagesKnown,
+      motherTongue,
+      identificationMark1,
+      identificationMark2}=req.body
+      if(!draftId){
+        return res.status(400).json({success:false,message:"Draft ID is Required"})
+      }
+      if (bankAccountNumber && !/^[0-9]{8,18}$/.test(bankAccountNumber)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid Bank Account Number"
+      });
+    }
+    if (ifscCode && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid IFSC Code"
+      });
+    }
+    if (uanNumber && !/^[0-9]{12}$/.test(uanNumber)) {
+      return res.status(400).json({
+        success: false,
+        message: "UAN must be 12 digits"
+      });
+    }
+    let temp=await TempPF.findOne({draftId});
+    if(!temp){
+       temp = new TempPF(req.body);
+    }else{
+        Object.assign(temp,req.body)
+    }
+    await temp.save()
+    let master=await EmployeeMaster.findOne({draftId});
+    if(!master){
+        master=new EmployeeMaster({draftId})
+    }
+    master.pf = temp.toObject();
+    master.status = "draft";
+    await master.save();
+     return res.status(200).json({
+      success: true,
+      message: "PF Details saved & synced successfully",
+      draftId,
+      data: temp
+    });
+    }catch(err){
+        console.error("PF Save Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to save PF details",
+      error: error.message
+    });
+
+    }
+}
+// Step 3: Academic Information Sync
+exports.syncAcademicDetails = async (req, res) => {
+  try {
+    const { draftId, academics } = req.body;
+
+    if (!draftId) {
+      return res.status(400).json({
+        success: false,
+        message: "draftId is required"
+      });
+    }
+
+    // Parsing academics array in case frontend sends JSON string
+    let academicList = Array.isArray(academics)
+      ? academics
+      : JSON.parse(academics || "[]");
+
+    if (!academicList.length) {
+      return res.status(400).json({
+        success: false,
+        message: "At least one Academic entry required"
+      });
+    }
+
+    // Validate fields of each entry
+    for (let i = 0; i < academicList.length; i++) {
+      const row = academicList[i];
+
+      if (!row.qualification?.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: `Qualification required at row ${i + 1}`
+        });
+      }
+
+      if (!row.boardOrUniversity?.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: `Board/University required at row ${i + 1}`
+        });
+      }
+
+      if (!row.passYear?.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: `Pass Year required at row ${i + 1}`
+        });
+      }
+    }
+
+    // SAVE OR UPDATE TEMP
+    let temp = await TempAcademic.findOne({ draftId });
+
+    if (!temp) {
+      temp = new TempAcademic({ draftId, academics: academicList });
+    } else {
+      temp.academics = academicList;
+    }
+
+    await temp.save();
+
+    // ********* SYNC WITH MASTER DOCUMENT *********
+    let master = await EmployeeMaster.findOne({ draftId });
+
+    if (!master) master = new EmployeeMaster({ draftId });
+
+    master.academics = academicList;
+    master.status = "draft";
+    await master.save();
+    // *********************************************
+
+    return res.status(200).json({
+      success: true,
+      message: "Academic details saved & synced successfully",
+      draftId,
+      data: temp
+    });
+
+  } catch (error) {
+    console.error("Academic Save Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to save academic details",
+      error: error.message
+    });
+  }
+};
+
+// STEP-4: Experience Save + Sync
+exports.syncExperienceDetails = async (req, res) => {
+  try {
+    const { draftId, experiences } = req.body;
+
+    if (!draftId) {
+      return res.status(400).json({
+        success: false,
+        message: "draftId is required"
+      });
+    }
+
+    // Parse if coming as string (especially FormData cases)
+    const experienceList = Array.isArray(experiences)
+      ? experiences
+      : JSON.parse(experiences || "[]");
+
+    if (!experienceList.length) {
+      return res.status(400).json({
+        success: false,
+        message: "At least one experience record required or send empty array if Fresher"
+      });
+    }
+
+    // Validation Loop
+    for (let i = 0; i < experienceList.length; i++) {
+      const exp = experienceList[i];
+
+      if (!exp.employerName?.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: `Employer Name missing at row ${i + 1}`
+        });
+      }
+      if (!exp.fromDate?.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: `From Date missing at row ${i + 1}`
+        });
+      }
+    }
+
+    // SAVE OR UPDATE TEMP COLLECTION
+    let temp = await TempExperience.findOne({ draftId });
+
+    if (!temp) {
+      temp = new TempExperience({ draftId, experiences: experienceList });
+    } else {
+      temp.experiences = experienceList;
+    }
+
+    await temp.save();
+
+    // ********** SYNC WITH MASTER ***********
+    let master = await EmployeeMaster.findOne({ draftId });
+    if (!master) master = new EmployeeMaster({ draftId });
+
+    master.experiences = experienceList;
+    master.status = "draft";
+    await master.save();
+    // ***************************************
+
+    return res.status(200).json({
+      success: true,
+      message: "Experience details saved & synced successfully",
+      draftId,
+      data: temp
+    });
+
+  } catch (error) {
+    console.error("Experience Save Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to save experience details",
+      error: error.message
+    });
+  }
+};
+
+exports.syncFamilyDetails = async (req, res) => {
+  try {
+    const { draftId, family } = req.body;
+
+    if (!draftId) {
+      return res.status(400).json({
+        success: false,
+        message: "draftId is required"
+      });
+    }
+
+    // Parse array if sent as JSON string
+    const familyList = Array.isArray(family)
+      ? family
+      : JSON.parse(family || "[]");
+
+    if (!familyList.length) {
+      return res.status(400).json({
+        success: false,
+        message: "At least 1 family member required"
+      });
+    }
+
+    // Validate rows
+    for (let i = 0; i < familyList.length; i++) {
+      const row = familyList[i];
+
+      if (!row.name?.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: `Name missing at row ${i + 1}`
+        });
+      }
+      if (!row.relation?.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: `Relation missing at row ${i + 1}`
+        });
+      }
+    }
+
+    // SAVE / UPDATE TEMP COLLECTION
+    let temp = await TempFamily.findOne({ draftId });
+
+    if (!temp) {
+      temp = new TempFamily({ draftId, family: familyList });
+    } else {
+      temp.family = familyList;
+    }
+
+    await temp.save();
+
+    // ********* SYNC TO MASTER *********
+    let master = await EmployeeMaster.findOne({ draftId });
+    if (!master) master = new EmployeeMaster({ draftId });
+
+    master.family = familyList;
+    master.status = "draft";
+    await master.save();
+    // **********************************
+
+    return res.status(200).json({
+      success: true,
+      message: "Family details saved & synced successfully",
+      draftId,
+      data: temp
+    });
+
+  } catch (error) {
+    console.error("Family Save Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to save family details",
+      error: error.message
+    });
+  }
+};
+
+// Step 5: Declaration Sync
+exports.syncDeclarationDetails = async (req, res) => {
+  try {
+    const { draftId } = req.body;
+
+    if (!draftId) {
+      return res.status(400).json({
+        success: false,
+        message: "draftId is required"
+      });
+    }
+
+    // Extract fields directly (everything comes from req.body)
+    const declarationData = req.body;
+
+    // FILE UPLOADS for signatures if needed
+    if (req.files?.specimenSignature1) {
+      declarationData.specimenSignature1Url =
+        req.files.specimenSignature1[0].path;
+    }
+    if (req.files?.specimenSignature2) {
+      declarationData.specimenSignature2Url =
+        req.files.specimenSignature2[0].path;
+    }
+    if (req.files?.declarationSignature) {
+      declarationData.declarationSignatureUrl =
+        req.files.declarationSignature[0].path;
+    }
+
+    // SAVE OR UPDATE TEMP DOCUMENT
+    let temp = await TempDeclaration.findOne({ draftId });
+
+    if (!temp) {
+      temp = new TempDeclaration({ draftId, ...declarationData });
+    } else {
+      Object.assign(temp, declarationData);
+    }
+
+    await temp.save();
+
+    // ******** SYNC WITH MASTER DOCUMENT ********
+    let master = await EmployeeMaster.findOne({ draftId });
+    if (!master) master = new EmployeeMaster({ draftId });
+
+    master.declaration = temp.toObject();
+    master.status = "draft";
+    await master.save();
+    // ********************************************
+
+    return res.status(200).json({
+      success: true,
+      message: "Declaration details saved & synced",
+      draftId,
+      data: temp
+    });
+
+  } catch (error) {
+    console.error("Declaration Save Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to save declaration details",
+      error: error.message
+    });
+  }
+};
+
+//Step 6:Offece Information Sync
+exports.syncOfficeUseDetails = async (req, res) => {
+  try {
+    const { draftId } = req.body;
+
+    if (!draftId) {
+      return res.status(400).json({
+        success: false,
+        message: "draftId is required"
+      });
+    }
+
+    // Save data directly
+    const officeData = req.body;
+
+    // SAVE/UPDATE TEMP COLLECTION
+    let temp = await TempOffice.findOne({ draftId });
+
+    if (!temp) {
+      temp = new TempOffice({ draftId, ...officeData });
+    } else {
+      Object.assign(temp, officeData);
+    }
+
+    await temp.save();
+
+    // ********** SYNC WITH MASTER **********
+    let master = await EmployeeMaster.findOne({ draftId });
+    if (!master) master = new EmployeeMaster({ draftId });
+
+    master.office = temp.toObject();
+    master.status = "submitted";  // HR filled means onboarding submitted
+    master.approvedBy = req.admin?._id || null;
+    await master.save();
+    // **************************************
+
+    return res.status(200).json({
+      success: true,
+      message: "Office use details saved & synced successfully",
+      draftId
+    });
+
+  } catch (error) {
+    console.error("Office Save Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to save office details",
+      error: error.message
+    });
+  }
+};
+
+exports.mergeOnboarding = async (req, res) => {
+  try {
+    const { draftId } = req.body;
+
+    if (!draftId) {
+      return res.status(400).json({
+        success: false,
+        message: "draftId is required"
+      });
+    }
+
+    const master = await EmployeeMaster.findOne({ draftId });
+
+    if (!master) {
+      return res.status(404).json({
+        success: false,
+        message: "Master onboarding data not found"
+      });
+    }
+
+    if (!master.personal || !master.pf || !master.academics || !master.experiences ||
+        !master.family || !master.declaration || !master.office) {
+      return res.status(400).json({
+        success: false,
+        message: "All onboarding sections must be completed before final approval"
+      });
+    }
+
+    // Generate employeeCode (EMP + last 4 of uuid)
+    const employeeCode = "EMP-" + draftId.slice(-4).toUpperCase();
+
+    // Insert into permanent EmployeeMaster
+    const employeeData = new EmployeeMaster({
+      employeeCode,
+      draftId,
+      personal: master.personal,
+      pf: master.pf,
+      academics: master.academics,
+      experiences: master.experiences,
+      family: master.family,
+      declaration: master.declaration,
+      office: master.office,
+      status: "active",
+      createdBy: req.admin?._id || null
+    });
+
+    await employeeData.save();
+
+    // Remove temp collections
+    await Promise.all([
+      TempPersonal.deleteOne({ draftId }),
+      TempPF.deleteOne({ draftId }),
+      TempAcademic.deleteOne({ draftId }),
+      TempExperience.deleteOne({ draftId }),
+      TempFamily.deleteOne({ draftId }),
+      TempDeclaration.deleteOne({ draftId }),
+      TempOffice.deleteOne({ draftId }),
+      OnboardedCandidate.deleteOne({ draftId }),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      message: "Onboarding completed and merged successfully",
+      employeeCode,
+      data: employeeData
+    });
+
+  } catch (error) {
+    console.error("Merge Onboarding Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to complete onboarding",
+      error: error.message
+    });
+  }
+};
+
+
+// Fetch Complete Details of One Employee (After Final Merge)
+exports.getEmployeeDetails = async (req, res) => {
+  try {
+    const { employeeCode } = req.params;
+
+    const employee = await EmployeeMaster.findOne({ employeeCode });
+
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        message: "Employee not found"
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: employee
+    });
+
+  } catch (error) {
+    console.error("Get Employee Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch employee details",
+      error: error.message
+    });
+  }
+};
+
+// Fetch all completed (final merged) employees
+exports.getAllEmployees = async (req, res) => {
+  try {
+    const employees = await EmployeeMaster.find().sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      count: employees.length,
+      data: employees
+    });
+
+  } catch (error) {
+    console.error("Get Employees Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch employees",
+      error: error.message
+    });
+  }
+};
