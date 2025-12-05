@@ -1,33 +1,31 @@
 const mongoose = require("mongoose");
 
-const declarationSchema = new mongoose.Schema({
-  draftId: { type: String, required: true },
+const declarationSchema = new mongoose.Schema(
+  {
+    draftId: { type: String, required: true, index: true },
 
-  // Boolean Yes/No Questions
-  keepOriginalCertificates: { type: Boolean, default: null },
-  willingServiceAgreement: { type: Boolean, default: null },
-  willingToWorkAnywhere: { type: Boolean, default: null },
-  agreeCompanyTerms: { type: Boolean, default: null },
-  doYouSmoke: { type: Boolean, default: null },
-  areYouAlcoholic: { type: Boolean, default: null },
+    keepOriginalCertificates: { type: Boolean, default: null },
+    willingServiceAgreement: { type: Boolean, default: null },
+    willingToWorkAnywhere: { type: Boolean, default: null },
+    agreeCompanyTerms: { type: Boolean, default: null },
+    doYouSmoke: { type: Boolean, default: null },
+    areYouAlcoholic: { type: Boolean, default: null },
+    medicallyFit: { type: Boolean, default: null },
 
-  medicallyFit: { type: Boolean, default: null },
+    convictedInCourt: { type: Boolean, default: null },
+    convictedRemarks: { type: String, trim: true, default: "" },
 
-  convictedInCourt: { type: Boolean, default: null },
-  convictedRemarks: { type: String, default: "" },
+    haveProfessionalMembership: { type: Boolean, default: null },
+    membershipDetails: { type: String, trim: true, default: "" },
 
-  haveProfessionalMembership: { type: Boolean, default: null },
-  membershipDetails: { type: String, default: "" },
+    specimenSignature1Url: { type: String, trim: true },
+    specimenSignature2Url: { type: String, trim: true },
 
-  // Signatures (Stored as file URL/path)
-  specimenSignature1Url: String,
-  specimenSignature2Url: String,
-
-  // Final Declaration
-  declarationName: String,
-  declarationSignatureUrl: String,
-  declarationDate: String
-
-}, { timestamps: true });
+    declarationName: { type: String, trim: true },
+    declarationSignatureUrl: { type: String, trim: true },
+    declarationDate: { type: String, trim: true }
+  },
+  { timestamps: true }
+);
 
 module.exports = mongoose.model("TempDeclaration", declarationSchema);
