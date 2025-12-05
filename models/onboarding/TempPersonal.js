@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const { v4: uuidv4 } = require("uuid");
+const { encryptText, decryptText } = require("../../utils/cryptoUtil");
 
 const TempPersonalSchema = new mongoose.Schema({
 
@@ -71,7 +72,7 @@ const TempPersonalSchema = new mongoose.Schema({
   presentState: { type: String },
   presentPhone: {
     type: String,
-    match: [/^[6-9]\d{9}$/, "Invalid phone number format"]
+    match: [/^[+][9][1][6-9]\d{9}$|^[6-9]\d{9}$/, "Invalid phone number"]
   },
   presentPincode: {
     type: String,
@@ -84,7 +85,7 @@ const TempPersonalSchema = new mongoose.Schema({
   permanentState: { type: String },
   permanentPhone: {
     type: String,
-    match: [/^[6-9]\d{9}$/, "Invalid phone number format"],
+    match: [/^[+][9][1][6-9]\d{9}$|^[6-9]\d{9}$/, "Invalid phone number"],
     default: ""
   },
   permanentPincode: {
@@ -93,19 +94,13 @@ const TempPersonalSchema = new mongoose.Schema({
     default: ""
   },
 
-  // ID Details
-  drivingLicense: { type: String },
-  pan: {
-    type: String,
-    uppercase: true,
-    match: [/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, "Invalid PAN number"]
-  },
-  aadhaar: {
-    type: String,
-    match: [/^\d{12}$/, "Aadhaar must be 12 digits"]
-  }
+  // ID Details (Encrypted Raw)
+  drivingLicense: { type: mongoose.Schema.Types.Mixed, default: null },
+  pan: { type: mongoose.Schema.Types.Mixed, default: null },
+  aadhaar: { type: mongoose.Schema.Types.Mixed, default: null }
 
 }, { timestamps: true });
+
 
 // Auto-calculate Age from DOB
 TempPersonalSchema.pre("save", function (next) {
@@ -117,15 +112,36 @@ TempPersonalSchema.pre("save", function (next) {
   next();
 });
 
-// Normalize Indian phone numbers +91 format
+
+// +91 Normalization
 TempPersonalSchema.pre("save", function (next) {
-  if (this.presentPhone && this.presentPhone.length === 10) {
+  if (this.presentPhone && !this.presentPhone.startsWith("+91")) {
     this.presentPhone = "+91" + this.presentPhone;
   }
-  if (this.permanentPhone && this.permanentPhone.length === 10) {
+  if (this.permanentPhone && !this.permanentPhone.startsWith("+91")) {
     this.permanentPhone = "+91" + this.permanentPhone;
   }
   next();
 });
+
+
+// Encrypt Aadhaar, PAN & DL before saving to DB
+TempPersonalSchema.pre("save", function (next) {
+  try {
+    if (this.isModified("aadhaar") && this.aadhaar && typeof this.aadhaar === "string") {
+      this.aadhaar = encryptText(this.aadhaar);
+    }
+    if (this.isModified("pan") && this.pan && typeof this.pan === "string") {
+      this.pan = encryptText(this.pan);
+    }
+    if (this.isModified("drivingLicense") && this.drivingLicense && typeof this.drivingLicense === "string") {
+      this.drivingLicense = encryptText(this.drivingLicense);
+    }
+    next();
+  } catch (err) {
+    next(err);
+  }
+});
+
 
 module.exports = mongoose.model("TempPersonal", TempPersonalSchema);
