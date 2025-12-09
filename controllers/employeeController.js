@@ -9,9 +9,19 @@ const TempOffice = require("../models/onboarding/TempOffice");
 const { v4: uuidv4 } = require("uuid");
 
 
-// Save and Sync Personal Info
 exports.syncPersonalInfo = async (req, res) => {
   try {
+    console.log("REQ BODY =>", req.body); // Debug
+    console.log("REQ FILE =>", req.file); // Debug
+
+    // Payload mapping (Frontend short names support)
+    const payload = {
+      ...req.body,
+      dateOfBirth: req.body.dateOfBirth || req.body.dob,
+      aadhaar: req.body.aadhaar || req.body.aadhar,
+      permanentPhone: req.body.permanentPhone || req.body.permPhone,
+    };
+
     const {
       draftId,
       firstName,
@@ -23,49 +33,21 @@ exports.syncPersonalInfo = async (req, res) => {
       presentPhone,
       permanentPhone,
       ...restFields
-    } = req.body;
+    } = payload;
 
     if (!firstName || !lastName) {
       return res.status(400).json({
         success: false,
-        message: "First & Last Name required"
+        message: "First & Last Name required",
       });
     }
 
-    // Generate draft ID if not provided
+    // Generate new draftId if not exists
     const generatedDraftId = draftId && draftId.trim() !== ""
       ? draftId
       : `DRAFT-${uuidv4()}`;
 
-    // Aadhaar
-    if (aadhaar && !/^\d{12}$/.test(aadhaar)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid Aadhaar number"
-      });
-    }
-
-    // PAN
-    if (pan && !/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(pan)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid PAN number"
-      });
-    }
-
-    // Phone validation
-    const validatePhone = (phone) => {
-      return phone && !/^[6-9]\d{9}$/.test(phone);
-    };
-
-    if (validatePhone(presentPhone) || validatePhone(permanentPhone)) {
-      return res.status(400).json({
-        success: false,
-        message: "Enter valid 10-digit phone number"
-      });
-    }
-
-    // Photo Upload
+    // File upload handling (Base64 storage)
     let photo = undefined;
     if (req.file) {
       photo = {
@@ -73,11 +55,11 @@ exports.syncPersonalInfo = async (req, res) => {
         mimeType: req.file.mimetype,
         fileSize: req.file.size,
         base64: req.file.buffer.toString("base64"),
-        uploadedAt: new Date()
+        uploadedAt: new Date(),
       };
     }
 
-    // Save in Temp Model
+    // Save to Temp Collection
     let temp = await TempPersonal.findOne({ draftId: generatedDraftId });
 
     if (!temp) {
@@ -91,47 +73,43 @@ exports.syncPersonalInfo = async (req, res) => {
         pan,
         presentPhone,
         permanentPhone,
-        ...restFields
+        ...restFields,
       });
     } else {
-      Object.assign(temp, req.body);
+      Object.assign(temp, payload);
     }
 
-    if (photo) {
-      temp.photoUrl = photo;
-    }
+    if (photo) temp.photoUrl = photo;
 
     await temp.save();
 
-    // Sync to Master Model
+    // Sync to Master Collection
     let master = await EmployeeMaster.findOne({ draftId: generatedDraftId });
 
-    if (!master) {
-      master = new EmployeeMaster({
-        draftId: generatedDraftId
-      });
-    }
+    if (!master) master = new EmployeeMaster({ draftId: generatedDraftId });
 
     master.personal = temp.toObject();
     master.status = "draft";
+
     await master.save();
 
     return res.status(200).json({
       success: true,
       message: "Personal info saved & synced successfully",
       draftId: generatedDraftId,
-      data: temp
+      data: temp,
     });
 
-  } catch (err) {
-    console.error("Personal Save Error:", err);
+  } catch (error) {
+    console.error("Personal Save Error:", error.stack || error);
     return res.status(500).json({
       success: false,
       message: "Failed to save personal info",
-      error: err.message
+      error: error.message,
     });
   }
 };
+
 
 
 // step 2:PF Information Sync
