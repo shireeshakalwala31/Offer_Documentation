@@ -582,35 +582,33 @@ exports.mergeOnboarding = async (req, res) => {
       });
     }
 
-    if (!master.personal || !master.pf || !master.academics || !master.experiences ||
-        !master.family || !master.declaration || !master.office) {
+    // Correct field name validation
+    if (
+      !master.personal ||
+      !master.pfDetails ||
+      !master.academicDetails?.length ||
+      !master.experienceDetails?.length ||
+      !master.familyDetails?.length ||
+      !master.declarationDetails ||
+      !master.officeUseDetails
+    ) {
       return res.status(400).json({
         success: false,
         message: "All onboarding sections must be completed before final approval"
       });
     }
 
-    // Generate employeeCode (EMP + last 4 of uuid)
+    // Generate Employee Code
     const employeeCode = "EMP-" + draftId.slice(-4).toUpperCase();
 
-    // Insert into permanent EmployeeMaster
-    const employeeData = new EmployeeMaster({
-      employeeCode,
-      draftId,
-      personal: master.personal,
-      pf: master.pf,
-      academics: master.academics,
-      experiences: master.experiences,
-      family: master.family,
-      declaration: master.declaration,
-      office: master.office,
-      status: "active",
-      createdBy: req.admin?._id || null
-    });
+    master.employeeCode = employeeCode;
+    master.status = "approved";
+    master.approvedBy = req.admin?._id || null;
+    master.approvedAt = new Date();
 
-    await employeeData.save();
+    await master.save();
 
-    // Remove temp collections
+    // Delete temp data after successful merge
     await Promise.all([
       TempPersonal.deleteOne({ draftId }),
       TempPF.deleteOne({ draftId }),
@@ -619,25 +617,26 @@ exports.mergeOnboarding = async (req, res) => {
       TempFamily.deleteOne({ draftId }),
       TempDeclaration.deleteOne({ draftId }),
       TempOffice.deleteOne({ draftId }),
-      OnboardedCandidate.deleteOne({ draftId }),
+      OnboardedCandidate.deleteOne({ draftId })
     ]);
 
-    return res.status(200).json({
+    res.status(200).json({
       success: true,
       message: "Onboarding completed and merged successfully",
       employeeCode,
-      data: employeeData
+      data: master
     });
 
   } catch (error) {
     console.error("Merge Onboarding Error:", error);
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
       message: "Failed to complete onboarding",
       error: error.message
     });
   }
 };
+
 
 
 // Fetch Complete Details of One Employee (After Final Merge)

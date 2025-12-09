@@ -1382,3 +1382,20 @@
 2025-12-05T16:56:30.926Z  ERROR: (node:16572) [MONGODB DRIVER] Warning: useUnifiedTopology is a deprecated option: useUnifiedTopology has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version
 2025-12-05T16:56:30.927Z  INFO: Server Running on PORT 5000
 2025-12-05T16:56:31.482Z  INFO: MongoDB connected
+2025-12-05T17:01:15.524Z  INFO: [dotenv@17.2.3] injecting env (10) from .env [2m-- tip: 🔐 prevent building .env in docker: https://dotenvx.com/prebuild[0m
+2025-12-05T17:01:18.977Z  ERROR: (node:3832) [MONGODB DRIVER] Warning: useNewUrlParser is a deprecated option: useNewUrlParser has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version
+(Use `node --trace-warnings ...` to show where the warning was created)
+2025-12-05T17:01:18.977Z  ERROR: (node:3832) [MONGODB DRIVER] Warning: useUnifiedTopology is a deprecated option: useUnifiedTopology has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version
+2025-12-05T17:01:18.978Z  INFO: Server Running on PORT 5000
+2025-12-09T05:07:54.445Z  INFO: [dotenv@17.2.3] injecting env (10) from .env [2m-- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }[0m
+2025-12-09T05:07:58.654Z  ERROR: (node:9356) [MONGODB DRIVER] Warning: useNewUrlParser is a deprecated option: useNewUrlParser has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version
+(Use `node --trace-warnings ...` to show where the warning was created)
+2025-12-09T05:07:58.655Z  ERROR: (node:9356) [MONGODB DRIVER] Warning: useUnifiedTopology is a deprecated option: useUnifiedTopology has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version
+2025-12-09T05:07:58.656Z  INFO: Server Running on PORT 5000
+2025-12-09T05:07:59.356Z  INFO: MongoDB connected
+2025-12-09T05:42:23.970Z  INFO: [dotenv@17.2.3] injecting env (10) from .env [2m-- tip: ⚙️  enable debug logging with { debug: true }[0m
+2025-12-09T05:42:27.153Z  ERROR: (node:22012) [MONGODB DRIVER] Warning: useNewUrlParser is a deprecated option: useNewUrlParser has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version
+(Use `node --trace-warnings ...` to show where the warning was created)
+2025-12-09T05:42:27.154Z  ERROR: (node:22012) [MONGODB DRIVER] Warning: useUnifiedTopology is a deprecated option: useUnifiedTopology has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version
+2025-12-09T05:42:27.154Z  INFO: Server Running on PORT 5000
+2025-12-09T05:42:27.693Z  INFO: MongoDB connected
