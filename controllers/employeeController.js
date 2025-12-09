@@ -486,7 +486,8 @@ exports.syncDeclarationDetails = async (req, res) => {
     let master = await EmployeeMaster.findOne({ draftId });
     if (!master) master = new EmployeeMaster({ draftId });
 
-   master.declaration = temp.toObject();
+   master.declarationDetails = temp.toObject();
+
 
     master.status = "draft";
     await master.save();
@@ -539,8 +540,7 @@ exports.syncOfficeUseDetails = async (req, res) => {
     let master = await EmployeeMaster.findOne({ draftId });
     if (!master) master = new EmployeeMaster({ draftId });
 
-    master.office = temp.toObject();
-
+    master.officeUseDetails = temp.toObject();
     master.status = "submitted";  // HR filled means onboarding submitted
     master.approvedBy = req.admin?._id || null;
     await master.save();
