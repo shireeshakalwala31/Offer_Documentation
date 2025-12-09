@@ -274,13 +274,15 @@ exports.syncAcademicDetails = async (req, res) => {
       data: academicList
     });
 
-  } catch (error) {
-    console.error("Academic Save Error:", error);
-    return res.status(500).json({
-      success: false,
-      message: error.message || "Failed to save academic details"
-    });
-  }
+    } catch (error) {
+  console.error("Academic Save Error:", error.stack || error);
+  return res.status(500).json({
+    success: false,
+    message: "Backend Failure",
+    error: error.message
+  });
+}
+  
 };
 
 
