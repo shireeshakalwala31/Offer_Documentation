@@ -206,7 +206,7 @@ exports.syncPFInfo=async(req,res)=>{
 // Step 3: Academic Information Sync
 exports.syncAcademicDetails = async (req, res) => {
   try {
-    const { draftId, academics } = req.body;
+    const { draftId } = req.body;
 
     if (!draftId) {
       return res.status(400).json({
@@ -215,9 +215,21 @@ exports.syncAcademicDetails = async (req, res) => {
       });
     }
 
-    let academicList = Array.isArray(academics)
-      ? academics
-      : JSON.parse(academics || "[]");
+    let academicList = [];
+
+    // Accept array directly or JSON string
+    if (req.body.academics) {
+      try {
+        academicList = Array.isArray(req.body.academics)
+          ? req.body.academics
+          : JSON.parse(req.body.academics);
+      } catch (parseError) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid academics format"
+        });
+      }
+    }
 
     if (!academicList.length) {
       return res.status(400).json({
@@ -226,47 +238,32 @@ exports.syncAcademicDetails = async (req, res) => {
       });
     }
 
-    // Validate required fields
-    for (let i = 0; i < academicList.length; i++) {
-      const row = academicList[i];
-
+    // Add draftId + validate
+    academicList.forEach((row, i) => {
       if (!row.qualification?.trim()) {
-        return res.status(400).json({
-          success: false,
-          message: `Qualification required at row ${i + 1}`
-        });
+        throw new Error(`Qualification missing at row ${i + 1}`);
       }
 
       if (!row.boardOrUniversity?.trim()) {
-        return res.status(400).json({
-          success: false,
-          message: `Board/University required at row ${i + 1}`
-        });
+        throw new Error(`Board/University missing at row ${i + 1}`);
       }
 
       if (!row.passYear?.trim()) {
-        return res.status(400).json({
-          success: false,
-          message: `Pass Year required at row ${i + 1}`
-        });
+        throw new Error(`Pass Year missing at row ${i + 1}`);
       }
 
-      // Ensure draftId added for each row
       row.draftId = draftId;
-    }
+    });
 
-    // Remove previous entries before saving new
+    // Clear previous records
     await TempAcademic.deleteMany({ draftId });
-
-    // Insert new academic entries
     await TempAcademic.insertMany(academicList);
 
-    // Sync to Master
+    // SYNC to Master document
     let master = await EmployeeMaster.findOne({ draftId });
     if (!master) master = new EmployeeMaster({ draftId });
 
-   master.academicDetails = academicList;
-
+    master.academicDetails = academicList;
     master.status = "draft";
     await master.save();
 
@@ -281,11 +278,11 @@ exports.syncAcademicDetails = async (req, res) => {
     console.error("Academic Save Error:", error);
     return res.status(500).json({
       success: false,
-      message: "Failed to save academic details",
-      error: error.message
+      message: error.message || "Failed to save academic details"
     });
   }
 };
+
 
 
 // STEP-4: Experience Save + Sync
