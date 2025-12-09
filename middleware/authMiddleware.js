@@ -1,54 +1,58 @@
 const jwt = require("jsonwebtoken");
 const HrAdmin = require("../models/Admin");
-const Employee = require("../models/onboarding/EmployeeMaster");
+const EmployeeUser = require("../models/EmployeeUser"); // <-- Login users for onboarding
 
 exports.verifyToken = async (req, res, next) => {
-  let token;
-
   try {
-    if (
-      req.headers.authorization &&
-      req.headers.authorization.startsWith("Bearer")
-    ) {
-      token = req.headers.authorization.split(" ")[1];
+    const authHeader = req.headers.authorization;
+
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({ message: "Missing or invalid token header" });
     }
 
-    if (!token) {
-      return res.status(401).json({ message: "No token provided" });
-    }
-
+    const token = authHeader.split(" ")[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Check if Admin Token
-    let user =
-      (await HrAdmin.findById(decoded.id).select("-password")) ||
-      (await Employee.findById(decoded.id).select("-password"));
-
-    if (!user) {
-      return res.status(401).json({ message: "User not found or unauthorized" });
+    // 1️⃣ Validate Admin User
+    let user = await HrAdmin.findById(decoded.id).select("-password");
+    if (user) {
+      req.user = user;
+      req.role = "admin";
+      return next();
     }
 
-    req.user = user; // Attach authenticated user
-    next();
+    // 2️⃣ Validate Employee User
+    user = await EmployeeUser.findById(decoded.id).select("-password");
+    if (user) {
+      req.user = user;
+      req.role = "employee";
+      return next();
+    }
+
+    return res.status(401).json({ message: "User not found or unauthorized" });
   } catch (error) {
-    console.error("Token verification error:", error.message);
-    res.status(401).json({ message: "Not authorized, invalid token" });
+    console.error("JWT Error:", error.message);
+    return res.status(401).json({
+      message: "Invalid or expired token",
+      error: error.message
+    });
   }
 };
 
-// Role Based Middleware
+// Only Admin (Offer, Appointment, Relieving, Office Use, Final Merge)
 exports.adminOnly = (req, res, next) => {
-  if (req.user?.role === "admin") {
-    next();
-  } else {
-    res.status(403).json({ message: "Access denied: Admin only" });
-  }
+  if (req.role === "admin") return next();
+  return res.status(403).json({ message: "Admin access required" });
 };
 
-exports.employeeOrAdmin = (req, res, next) => {
-  if (req.user?.role === "employee" || req.user?.role === "admin") {
-    next();
-  } else {
-    res.status(403).json({ message: "Access denied" });
-  }
+// Only Employee (Personal, PF, Family, Experience, Declaration)
+exports.employeeOnly = (req, res, next) => {
+  if (req.role === "employee") return next();
+  return res.status(403).json({ message: "Employee access required" });
+};
+
+// Both Admin + Employee (Get Self / View)
+exports.adminOrEmployee = (req, res, next) => {
+  if (req.role === "admin" || req.role === "employee") return next();
+  return res.status(403).json({ message: "Access denied" });
 };

@@ -4,7 +4,7 @@ const multer=require("multer")
 const { registerAdmin, loginAdmin,forgotPassword,resetPasswordWithOtp } = require("../controllers/authController");
 const {createOfferLetter,getAllOffers,getOfferById,updateOfferLetter,generatePDF,deleteOfferLetter,downloadOfferLetter,sendOfferLetterEmail}=require('../controllers/offerController');
 
-const{verifyToken}=require('../middleware/authMiddleware');
+const{verifyToken,adminOnly}=require('../middleware/authMiddleware');
 
 
 // ✅ NO spaces after '/login'
@@ -15,15 +15,15 @@ router.post("/register", registerAdmin);
 router.post("/login", loginAdmin);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPasswordWithOtp);
-router.post("/create",verifyToken,createOfferLetter);
-router.post('/generate-pdf',verifyToken,generatePDF)
-router.get("/all",verifyToken,getAllOffers)
-router.get('/:id',verifyToken,getOfferById);
-router.put('/:id',verifyToken,updateOfferLetter)
-router.delete('/:id',verifyToken,deleteOfferLetter);
+router.post("/create",verifyToken,adminOnly,createOfferLetter);
+router.post('/generate-pdf',verifyToken,adminOnly,generatePDF)
+router.get("/all",verifyToken,adminOnly,getAllOffers)
+router.get('/:id',verifyToken,adminOnly,getOfferById);
+router.put('/:id',verifyToken,adminOnly,updateOfferLetter)
+router.delete('/:id',verifyToken,adminOnly,deleteOfferLetter);
 
-router.get("/download/:id", verifyToken, downloadOfferLetter);
-router.post("/send-email",verifyToken,sendOfferLetterEmail)
+router.get("/download/:id", verifyToken, adminOnly, downloadOfferLetter);
+router.post("/send-email",verifyToken,adminOnly,sendOfferLetterEmail)
 
 
 module.exports = router;

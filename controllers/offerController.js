@@ -87,13 +87,12 @@ const generateSalaryBreakdown = (ctcAmount) => {
 //
 exports.createOfferLetter = async (req, res) => {
   try {
-    // 🔥 Admin Safety Check
-    // if (!req.admin || !req.admin.id) {
-    //   return res.status(401).json({
-    //     success: false,
-    //     message: "Unauthorized: Admin credentials missing.",
-    //   });
-    // }
+    if (!req.admin || !req.admin._id) {
+      return res.status(401).json({
+        success: false,
+        message: "Unauthorized: Admin credentials missing.",
+      });
+    }
 
     const {
       candidateName,
@@ -106,38 +105,25 @@ exports.createOfferLetter = async (req, res) => {
       probationPeriodMonths,
     } = req.body;
 
-    // ✅ Validate required fields
-    if (
-      !candidateName ||
-      !candidateAddress ||
-      !position ||
-      !joiningDate ||
-      !ctcAmount ||
-      !ctcInWords
-    ) {
+    if (!candidateName || !candidateAddress || !position || !joiningDate || !ctcAmount || !ctcInWords) {
       return res.status(400).json({
         success: false,
-        message:Messages.OFFER.MISSING_FIELDS_ERROR,
+        message: Messages.OFFER.MISSING_FIELDS_ERROR,
       });
     }
 
-    // ✅ Admin reference
-    const createdBy = req.admin.id;
+    const createdBy = req.admin._id;
 
-    // ✅ Parse and validate CTC
     const totalCTC = Number(ctcAmount);
     if (isNaN(totalCTC) || totalCTC <= 0) {
-      return res
-        .status(400)
-        .json({ success: false, message:Messages.OFFER.INVALID_CTC });
+      return res.status(400).json({
+        success: false,
+        message: Messages.OFFER.INVALID_CTC
+      });
     }
 
-    // ✅ Salary breakdown
     const salaryBreakdown = generateSalaryBreakdown(totalCTC);
 
-    // Logo is now handled inside pdfGenerator
-
-    // ✅ Create offer letter data object
     const offerData = {
       candidateName: candidateName.trim(),
       candidateAddress: candidateAddress.trim(),
@@ -151,7 +137,6 @@ exports.createOfferLetter = async (req, res) => {
       createdBy,
     };
 
-    // ✅ Pass logo to EJS PDF generator
     const pdfPath = await generateOfferPDF(offerData);
 
     const offerLetter = new OfferLetter({
@@ -163,19 +148,22 @@ exports.createOfferLetter = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message:Messages.OFFER.CREATE_SUCCESS,
+      message: Messages.OFFER.CREATE_SUCCESS,
       data: offerLetter,
       pdfFile: offerLetter.pdfPath,
     });
+
   } catch (error) {
-  logger.error("Error creating offer letter:", error);
-  res.status(500).json({
-    message: Messages.ERROR.SERVER,
-    error: error.message,
-    stack: error.stack,
-  });
-}
+    console.error("Error creating offer letter:", error);
+    res.status(500).json({
+      success: false,
+      message: Messages.ERROR.SERVER,
+      error: error.message,
+      stack: error.stack,
+    });
+  }
 };
+
 
 
 //
