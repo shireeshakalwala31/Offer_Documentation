@@ -617,7 +617,6 @@ exports.mergeOnboarding = async (req, res) => {
       TempFamily.deleteOne({ draftId }),
       TempDeclaration.deleteOne({ draftId }),
       TempOffice.deleteOne({ draftId }),
-      OnboardedCandidate.deleteOne({ draftId })
     ]);
 
     res.status(200).json({
