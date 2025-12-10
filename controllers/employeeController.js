@@ -8,46 +8,60 @@ const TempDeclaration = require("../models/onboarding/TempDeclaration");
 const TempOffice = require("../models/onboarding/TempOffice");
 const { v4: uuidv4 } = require("uuid");
 
-
 exports.syncPersonalInfo = async (req, res) => {
   try {
-    console.log("REQ BODY =>", req.body); // Debug
-    console.log("REQ FILE =>", req.file); // Debug
+    console.log("----- Incoming Personal Info Request -----");
+    console.log("Content-Type:", req.headers["content-type"]);
+    console.log("Raw Body:", req.body);
+    console.log("File:", req.file);
 
-    // Payload mapping (Frontend short names support)
+    // SAFELY PARSE BODY (Fix for FormData JSON)
+    let parsedBody = {};
+
+    try {
+      parsedBody = typeof req.body === "string"
+        ? JSON.parse(req.body)
+        : req.body;
+    } catch (parseErr) {
+      parsedBody = req.body;
+    }
+
+    console.log("PARSED BODY =>", parsedBody);
+
+    // FIELD MAPPING SUPPORTING FRONTEND NAMES
     const payload = {
-      ...req.body,
-      dateOfBirth: req.body.dateOfBirth || req.body.dob,
-      aadhaar: req.body.aadhaar || req.body.aadhar,
-      permanentPhone: req.body.permanentPhone || req.body.permPhone,
+      ...parsedBody,
+      dateOfBirth: parsedBody.dateOfBirth || parsedBody.dob,
+      aadhaar: parsedBody.aadhaar || parsedBody.aadhar,
+      permanentPhone: parsedBody.permanentPhone || parsedBody.permPhone,
     };
 
     const {
       draftId,
       firstName,
       lastName,
-      dateOfBirth,
       gender,
       aadhaar,
       pan,
       presentPhone,
       permanentPhone,
+      dateOfBirth,
       ...restFields
     } = payload;
 
     if (!firstName || !lastName) {
       return res.status(400).json({
         success: false,
-        message: "First & Last Name required",
+        message: "First & Last Name required"
       });
     }
 
-    // Generate new draftId if not exists
-    const generatedDraftId = draftId && draftId.trim() !== ""
-      ? draftId
-      : `DRAFT-${uuidv4()}`;
+    const generatedDraftId =
+      draftId && draftId.trim() !== ""
+        ? draftId
+        : `DRAFT-${uuidv4()}`;
 
-    // File upload handling (Base64 storage)
+    // PHOTO CONVERSION (BASE64)
     let photo = undefined;
     if (req.file) {
       photo = {
@@ -59,7 +73,7 @@ exports.syncPersonalInfo = async (req, res) => {
       };
     }
 
-    // Save to Temp Collection
+    // SAVE TEMP DATA
     let temp = await TempPersonal.findOne({ draftId: generatedDraftId });
 
     if (!temp) {
@@ -67,45 +81,42 @@ exports.syncPersonalInfo = async (req, res) => {
         draftId: generatedDraftId,
         firstName,
         lastName,
-        dateOfBirth,
         gender,
         aadhaar,
         pan,
         presentPhone,
         permanentPhone,
-        ...restFields,
+        dateOfBirth,
+        ...restFields
       });
     } else {
       Object.assign(temp, payload);
     }
 
     if (photo) temp.photoUrl = photo;
-
     await temp.save();
 
-    // Sync to Master Collection
+    // SYNC INTO MASTER COLLECTION
     let master = await EmployeeMaster.findOne({ draftId: generatedDraftId });
-
     if (!master) master = new EmployeeMaster({ draftId: generatedDraftId });
 
     master.personal = temp.toObject();
     master.status = "draft";
-
     await master.save();
 
     return res.status(200).json({
       success: true,
       message: "Personal info saved & synced successfully",
       draftId: generatedDraftId,
-      data: temp,
+      data: temp
     });
 
   } catch (error) {
-    console.error("Personal Save Error:", error.stack || error);
+    console.error("Personal Save Error =>", error.stack || error);
     return res.status(500).json({
       success: false,
       message: "Failed to save personal info",
-      error: error.message,
+      error: error.message
     });
   }
 };
