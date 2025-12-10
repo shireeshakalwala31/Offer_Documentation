@@ -27,7 +27,7 @@ const employeeMasterSchema = new mongoose.Schema(
     // Who approved onboarding
     approvedBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "user",
+      ref: "Admin",
       default: null
     },
     approvedAt: { type: Date, default: null }
