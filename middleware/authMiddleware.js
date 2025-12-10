@@ -39,6 +39,9 @@ exports.verifyToken = async (req, res, next) => {
 
 // Only Admin can access HR features
 exports.adminOnly = (req, res, next) => {
-  if (req.role === "admin") return next();
-  return res.status(403).json({ message: "Admin access required" });
+  if (req.user?.role?.toLowerCase() === "admin") {
+    return next();
+  }
+  return res.status(403).json({ message: "Access denied: Admin only" });
 };
+

@@ -13,7 +13,7 @@ const TempPersonalSchema = new mongoose.Schema({
 
   // Profile Photo URL/Path
   photoUrl: {
-    type: String,
+    type: Object,
     default: null
   },
 
