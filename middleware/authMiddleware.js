@@ -11,16 +11,14 @@ exports.verifyToken = async (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const userId = decoded.id;
 
-    console.log("Decoded Token =>", decoded);
-
-    // Identify user type
     let user = null;
 
-    if (decoded.role === "admin") {
-      user = await HrAdmin.findById(decoded.id).select("-password");
-    } else if (decoded.role === "employee") {
-      user = await Employee.findById(decoded.id).select("-password");
+    if (decoded.role?.toLowerCase() === "admin") {
+      user = await HrAdmin.findById(userId).select("-password");
+    } else if (decoded.role?.toLowerCase() === "employee") {
+      user = await Employee.findById(userId).select("-password");
     }
 
     if (!user) {
@@ -32,16 +30,18 @@ exports.verifyToken = async (req, res, next) => {
     next();
 
   } catch (error) {
-    console.error("Token error:", error);
+    console.error("Token error:", error.message);
     return res.status(401).json({ message: "Invalid or expired token" });
   }
 };
 
-// Only Admin can access HR features
 exports.adminOnly = (req, res, next) => {
-  if (req.user?.role?.toLowerCase() === "admin") {
-    return next();
-  }
+  if (req.user?.role?.toLowerCase() === "admin") return next();
   return res.status(403).json({ message: "Access denied: Admin only" });
 };
 
+exports.employeeOrAdmin = (req, res, next) => {
+  if (req.user?.role?.toLowerCase() === "admin" 
+    || req.user?.role?.toLowerCase() === "employee") return next();
+  return res.status(403).json({ message: "Access denied" });
+};
