@@ -2,32 +2,26 @@ const mongoose = require("mongoose");
 
 const EmployeeUserSchema = new mongoose.Schema(
   {
-    firstName: {
-      type: String,
-      required: true,
-      trim: true
-    },
-    lastName: {
-      type: String,
-      required: true,
-      trim: true
-    },
+    firstName: { type: String, required: true, trim: true },
+    lastName: { type: String, required: true, trim: true },
 
     email: {
       type: String,
       required: true,
       unique: true,
       lowercase: true,
-      match: [/^\S+@\S+\.\S+$/, "Invalid email format"]
+      trim: true
     },
 
     password: {
       type: String,
-      required: true
+      required: true,
+      select: false
     },
 
     role: {
       type: String,
+      enum: ["employee"],
       default: "employee"
     }
   },
