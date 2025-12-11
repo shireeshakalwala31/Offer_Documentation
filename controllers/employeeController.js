@@ -317,10 +317,15 @@ exports.syncAcademicDetails = async (req, res) => {
       });
     }
 
-    // Add draftId + validate
+    // Add draftId and VALIDATE ALL REQUIRED FIELDS
     academicList.forEach((row, i) => {
+
       if (!row.qualification?.trim()) {
         throw new Error(`Qualification missing at row ${i + 1}`);
+      }
+
+      if (!row.schoolOrCollege?.trim()) {
+        throw new Error(`School/College missing at row ${i + 1}`);
       }
 
       if (!row.boardOrUniversity?.trim()) {
@@ -334,11 +339,11 @@ exports.syncAcademicDetails = async (req, res) => {
       row.draftId = draftId;
     });
 
-    // Clear previous records
+    // Delete previous and insert fresh data
     await TempAcademic.deleteMany({ draftId });
     await TempAcademic.insertMany(academicList);
 
-    // SYNC to Master document
+    // Sync to Master
     let master = await EmployeeMaster.findOne({ draftId });
     if (!master) master = new EmployeeMaster({ draftId });
 
@@ -353,15 +358,14 @@ exports.syncAcademicDetails = async (req, res) => {
       data: academicList
     });
 
-    } catch (error) {
-  console.error("Academic Save Error:", error.stack || error);
-  return res.status(500).json({
-    success: false,
-    message: "Backend Failure",
-    error: error.message
-  });
-}
-  
+  } catch (error) {
+    console.error("Academic Save Error:", error.stack || error);
+    return res.status(500).json({
+      success: false,
+      message: "Backend Failure",
+      error: error.message
+    });
+  }
 };
 
 
