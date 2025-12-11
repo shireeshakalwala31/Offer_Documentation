@@ -463,23 +463,22 @@ exports.syncExperienceDetails = async (req, res) => {
 
     let experienceList = [];
 
-    // Accept both `experience` AND `experiences`
-    let incomingData = req.body.experience || req.body.experiences;
+    // Accept both "experience" and "experiences"
+    let incoming = req.body.experience || req.body.experiences;
 
-    if (incomingData) {
+    if (incoming) {
       try {
-        experienceList = Array.isArray(incomingData)
-          ? incomingData
-          : JSON.parse(incomingData);
+        experienceList = Array.isArray(incoming)
+          ? incoming
+          : JSON.parse(incoming);
       } catch (err) {
         return res.status(400).json({
           success: false,
-          message: "Invalid experience format. Must be an array or JSON string.",
+          message: "Invalid experience format. Must be array or JSON string.",
         });
       }
     }
 
-    // Validate existence
     if (!experienceList.length) {
       return res.status(400).json({
         success: false,
@@ -487,44 +486,68 @@ exports.syncExperienceDetails = async (req, res) => {
       });
     }
 
-    // Normalize + Validate
+    // Normalize & Validate
     experienceList = experienceList.map((row, index) => {
       const rowNo = index + 1;
 
-      const normalized = {
-        draftId,
+      // Core required fields
+      const employerName =
+        row.employerName?.trim() ||
+        row.companyName?.trim() ||
+        row.organization?.trim() ||
+        "";
 
-        employerName:
-          row.employerName?.trim() ||
-          row.companyName?.trim() ||
-          row.organization?.trim() ||
-          "",
+      const designation = row.designation?.trim() || row.role?.trim() || "";
+      const fromDate = row.fromDate || row.startDate || row.from || "";
+      const toDate = row.toDate || row.endDate || row.to || "";
 
-        designation: row.designation?.trim() || row.role?.trim() || "",
-
-        fromDate: row.fromDate || row.startDate || row.from || "",
-        toDate: row.toDate || row.endDate || row.to || "",
-
-        address: row.address?.trim() || "",
-        reasonForLeaving: row.reasonForLeaving || row.reason || "",
-        salary: row.salary || row.lastSalary || "",
-        serialNo: rowNo,
-      };
-
-      // Field validations
-      if (!normalized.employerName)
+      if (!employerName)
         throw new Error(`Employer Name required at row ${rowNo}`);
-
-      if (!normalized.designation)
+      if (!designation)
         throw new Error(`Designation required at row ${rowNo}`);
-
-      if (!normalized.fromDate)
+      if (!fromDate)
         throw new Error(`From Date required at row ${rowNo}`);
-
-      if (!normalized.toDate)
+      if (!toDate)
         throw new Error(`To Date required at row ${rowNo}`);
 
-      return normalized;
+      // Preserve ALL fields user sends
+      return {
+        draftId,
+        serialNo: rowNo,
+
+        // Required
+        employerName,
+        designation,
+        fromDate,
+        toDate,
+
+        // Optional — KEEP EVERYTHING
+        employerAddress: row.employerAddress || row.address || "",
+        salaryPA: row.salaryPA || row.salary || row.lastSalary || "",
+        industry: row.industry || "",
+
+        reasonForLeaving: row.reasonForLeaving || row.reason || "",
+
+        functionalSkills: row.functionalSkills || "",
+        technicalSkills: row.technicalSkills || "",
+        professionalAchievements: row.professionalAchievements || "",
+
+        nomineeName: row.nomineeName || "",
+        nomineeDob: row.nomineeDob || "",
+        nomineeRelationship: row.nomineeRelationship || "",
+
+        height: row.height || "",
+        weight: row.weight || "",
+        powerOfGlassLeft: row.powerOfGlassLeft || "",
+        powerOfGlassRight: row.powerOfGlassRight || "",
+        majorSurgeryOrIllness: row.majorSurgeryOrIllness || "",
+        prolongedSickness: row.prolongedSickness || "",
+        accidentHistory: row.accidentHistory || "",
+        foreignObjectInBody: row.foreignObjectInBody || "",
+
+        // Keep any extra unknown fields automatically
+        ...row
+      };
     });
 
     // Save temp
@@ -552,7 +575,6 @@ exports.syncExperienceDetails = async (req, res) => {
 
     if (
       error.message.includes("required at row") ||
-      error.message.includes("missing") ||
       error.message.includes("Invalid")
     ) {
       return res.status(400).json({
@@ -568,6 +590,7 @@ exports.syncExperienceDetails = async (req, res) => {
     });
   }
 };
+
 
 
 exports.syncFamilyDetails = async (req, res) => {
