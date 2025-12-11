@@ -1609,3 +1609,24 @@
 2025-12-11T05:52:30.492Z  INFO: Server Running on PORT 5000
 2025-12-11T05:52:30.911Z  INFO: MongoDB connected
 2025-12-11T05:52:30.948Z  INFO: ✔ Admin already exists. Skipping admin creation.
+2025-12-11T06:17:53.559Z  INFO: [dotenv@17.2.3] injecting env (10) from .env [2m-- tip: ⚙️  write to custom object with { processEnv: myObject }[0m
+2025-12-11T06:17:58.377Z  ERROR: (node:21584) [MONGODB DRIVER] Warning: useNewUrlParser is a deprecated option: useNewUrlParser has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version
+(Use `node --trace-warnings ...` to show where the warning was created)
+2025-12-11T06:17:58.379Z  ERROR: (node:21584) [MONGODB DRIVER] Warning: useUnifiedTopology is a deprecated option: useUnifiedTopology has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version
+2025-12-11T06:17:58.380Z  INFO: Server Running on PORT 5000
+2025-12-11T06:17:59.014Z  INFO: MongoDB connected
+2025-12-11T06:17:59.090Z  INFO: ✔ Admin already exists. Skipping admin creation.
+2025-12-11T06:24:41.809Z  INFO: [dotenv@17.2.3] injecting env (10) from .env [2m-- tip: 📡 add observability to secrets: https://dotenvx.com/ops[0m
+2025-12-11T06:24:50.141Z  ERROR: (node:23368) [MONGODB DRIVER] Warning: useNewUrlParser is a deprecated option: useNewUrlParser has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version
+(Use `node --trace-warnings ...` to show where the warning was created)
+2025-12-11T06:24:50.142Z  ERROR: (node:23368) [MONGODB DRIVER] Warning: useUnifiedTopology is a deprecated option: useUnifiedTopology has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version
+2025-12-11T06:24:50.143Z  INFO: Server Running on PORT 5000
+2025-12-11T06:24:50.991Z  INFO: MongoDB connected
+2025-12-11T06:24:51.048Z  INFO: ✔ Admin already exists. Skipping admin creation.
+2025-12-11T06:25:15.519Z  INFO: [dotenv@17.2.3] injecting env (10) from .env [2m-- tip: 🔐 prevent committing .env to code: https://dotenvx.com/precommit[0m
+2025-12-11T06:25:22.715Z  ERROR: (node:16760) [MONGODB DRIVER] Warning: useNewUrlParser is a deprecated option: useNewUrlParser has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version
+(Use `node --trace-warnings ...` to show where the warning was created)
+2025-12-11T06:25:22.716Z  ERROR: (node:16760) [MONGODB DRIVER] Warning: useUnifiedTopology is a deprecated option: useUnifiedTopology has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version
+2025-12-11T06:25:22.717Z  INFO: Server Running on PORT 5000
+2025-12-11T06:25:23.605Z  INFO: MongoDB connected
+2025-12-11T06:25:23.766Z  INFO: ✔ Admin already exists. Skipping admin creation.

@@ -8,38 +8,49 @@ const TempDeclaration = require("../models/onboarding/TempDeclaration");
 const TempOffice = require("../models/onboarding/TempOffice");
 const { v4: uuidv4 } = require("uuid");
 const { generateToken } = require("../utils/generateToken");
-const EmployeeUser = require("../models/EmployeeUser");
+const EmployeeUser = require("../models/onboarding/EmployeeUser");
 
 exports.registerEmployee = async (req, res) => {
   try {
     const { firstName, lastName, email, password } = req.body;
 
     if (!firstName || !lastName || !email || !password) {
-      return res.status(400).json({ message: "All fields are required" });
+      return res.status(400).json({ message: "All fields required" });
     }
 
-    let existing = await EmployeeUser.findOne({ email });
-    if (existing) {
-      return res.status(400).json({ message: "Email already registered" });
+    const exists = await EmployeeUser.findOne({ email });
+    if (exists) {
+      return res.status(400).json({ message: "Employee already exists" });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashed = await bcrypt.hash(password, 10);
 
-    const user = await EmployeeUser.create({
+    const newEmployee = await EmployeeUser.create({
       firstName,
       lastName,
       email,
-      password: hashedPassword
+      password: hashed
     });
 
+    const token = jwt.sign(
+      { id: newEmployee._id, role: "employee" },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
+
     return res.status(201).json({
-      success: true,
       message: "Employee registered successfully",
-      token: generateToken(user),
-      user
+      token,
+      employee: {
+        id: newEmployee._id,
+        firstName,
+        lastName,
+        email,
+      }
     });
+
   } catch (err) {
-    return res.status(500).json({ message: "Registration failed", error: err.message });
+    return res.status(500).json({ message: "Server error", error: err.message });
   }
 };
 
@@ -48,22 +59,37 @@ exports.loginEmployee = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    const user = await EmployeeUser.findOne({ email });
+    const employee = await EmployeeUser.findOne({ email }).select("+password");
 
-    if (!user) return res.status(401).json({ message: "Invalid email or password" });
+    if (!employee) {
+      return res.status(404).json({ message: "Employee not found" });
+    }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    const isMatch = await bcrypt.compare(password, employee.password);
 
-    if (!isMatch) return res.status(401).json({ message: "Invalid email or password" });
+    if (!isMatch) {
+      return res.status(401).json({ message: "Invalid credentials" });
+    }
 
-    return res.status(200).json({
-      success: true,
+    const token = jwt.sign(
+      { id: employee._id, role: "employee" },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
+
+    res.status(200).json({
       message: "Login successful",
-      token: generateToken(user),
-      user
+      token,
+      employee: {
+        id: employee._id,
+        firstName: employee.firstName,
+        lastName: employee.lastName,
+        email: employee.email,
+        role: employee.role
+      }
     });
   } catch (err) {
-    return res.status(500).json({ message: "Login failed", error: err.message });
+    res.status(500).json({ message: "Server error", error: err.message });
   }
 };
 
