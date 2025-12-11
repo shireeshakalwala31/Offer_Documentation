@@ -461,71 +461,73 @@ exports.syncExperienceDetails = async (req, res) => {
       });
     }
 
-    let experienceList = [];
+    let experiences = req.body.experience || req.body.experiences;
 
-    // Accept both "experience" and "experiences"
-    let incoming = req.body.experience || req.body.experiences;
-
-    if (incoming) {
+    // Handle JSON string from FormData
+    if (typeof experiences === "string") {
       try {
-        experienceList = Array.isArray(incoming)
-          ? incoming
-          : JSON.parse(incoming);
+        experiences = JSON.parse(experiences);
       } catch (err) {
         return res.status(400).json({
           success: false,
-          message: "Invalid experience format. Must be array or JSON string.",
+          message: "Invalid experience format (not valid JSON)",
         });
       }
     }
 
-    if (!experienceList.length) {
+    // Must be array
+    if (!Array.isArray(experiences) || experiences.length === 0) {
       return res.status(400).json({
         success: false,
         message: "At least one experience entry is required.",
       });
     }
 
-    // Normalize & Validate
-    experienceList = experienceList.map((row, index) => {
+    // Normalize + validate
+    const finalList = experiences.map((row, index) => {
       const rowNo = index + 1;
 
-      // Core required fields
       const employerName =
-        row.employerName?.trim() ||
-        row.companyName?.trim() ||
-        row.organization?.trim() ||
+        row.employerName ||
+        row.companyName ||
+        row.organization ||
+        row.employer ||
         "";
 
-      const designation = row.designation?.trim() || row.role?.trim() || "";
-      const fromDate = row.fromDate || row.startDate || row.from || "";
-      const toDate = row.toDate || row.endDate || row.to || "";
+      // ACCEPT ALL POSSIBLE fromDate KEY VARIANTS
+      const fromDate =
+        row.fromDate ||
+        row.startDate ||
+        row.from ||
+        row.from_date ||
+        row.experienceFrom ||
+        "";
 
-      if (!employerName)
-        throw new Error(`Employer Name required at row ${rowNo}`);
-      if (!designation)
-        throw new Error(`Designation required at row ${rowNo}`);
-      if (!fromDate)
-        throw new Error(`From Date required at row ${rowNo}`);
-      if (!toDate)
-        throw new Error(`To Date required at row ${rowNo}`);
+      // ACCEPT ALL POSSIBLE toDate VARIANTS
+      const toDate =
+        row.toDate ||
+        row.endDate ||
+        row.to ||
+        row.to_date ||
+        row.experienceTo ||
+        "";
 
-      // Preserve ALL fields user sends
+      if (!employerName.trim()) throw new Error(`Employer Name required at row ${rowNo}`);
+      if (!fromDate) throw new Error(`From Date required at row ${rowNo}`);
+      if (!toDate) throw new Error(`To Date required at row ${rowNo}`);
+
       return {
         draftId,
         serialNo: rowNo,
 
-        // Required
-        employerName,
-        designation,
+        employerName: employerName.trim(),
+        designation: row.designation || row.role || "",
+
         fromDate,
         toDate,
 
-        // Optional — KEEP EVERYTHING
         employerAddress: row.employerAddress || row.address || "",
         salaryPA: row.salaryPA || row.salary || row.lastSalary || "",
-        industry: row.industry || "",
-
         reasonForLeaving: row.reasonForLeaving || row.reason || "",
 
         functionalSkills: row.functionalSkills || "",
@@ -545,51 +547,37 @@ exports.syncExperienceDetails = async (req, res) => {
         accidentHistory: row.accidentHistory || "",
         foreignObjectInBody: row.foreignObjectInBody || "",
 
-        // Keep any extra unknown fields automatically
-        ...row
+        ...row // Keep any extra fields
       };
     });
 
-    // Save temp
+    // Save Temp
     await TempExperience.deleteMany({ draftId });
-    await TempExperience.insertMany(experienceList);
+    await TempExperience.insertMany(finalList);
 
-    // Sync master
+    // Save Master
     let master = await EmployeeMaster.findOne({ draftId });
     if (!master) master = new EmployeeMaster({ draftId });
 
-    master.experienceDetails = experienceList;
+    master.experienceDetails = finalList;
     master.status = "draft";
-
     await master.save();
 
     return res.status(200).json({
       success: true,
-      message: "Experience details saved & synced successfully",
-      draftId,
-      data: experienceList,
+      message: "Experience details saved successfully",
+      data: finalList,
     });
 
   } catch (error) {
     console.error("Experience Save Error:", error);
-
-    if (
-      error.message.includes("required at row") ||
-      error.message.includes("Invalid")
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: error.message,
-      });
-    }
-
-    return res.status(500).json({
+    return res.status(400).json({
       success: false,
-      message: "Backend Failure",
-      error: error.message,
+      message: error.message,
     });
   }
 };
+
 
 
 
