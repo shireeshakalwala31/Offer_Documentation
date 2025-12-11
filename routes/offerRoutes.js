@@ -11,7 +11,7 @@ const{verifyToken,adminOnly}=require('../middleware/authMiddleware');
 router.get("/test", (req, res) => {
     res.status(200).send("Router is connected!");
 });
-router.post("/register", registerAdmin);
+// router.post("/register", registerAdmin);
 router.post("/login", loginAdmin);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPasswordWithOtp);

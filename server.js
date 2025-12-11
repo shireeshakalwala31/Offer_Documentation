@@ -16,6 +16,7 @@ const cors = require("cors");
 const mongoose = require("mongoose");
 const app = express();
 const bodyParser = require("body-parser");
+const createDefaultAdmin = require("./seed/adminSeeder");
 const loggerMiddleware = require("./middleware/loggerMiddleware");
 
 // CORS - Always enable before routes
@@ -73,6 +74,7 @@ mongoose
     serverSelectionTimeoutMS: 30000,
   })
   .then(() => logger.info("MongoDB connected"))
+  
   .catch((err) => logger.error("MongoDB connection error: " + err.message));
 
 // Test Route
@@ -81,4 +83,5 @@ app.get("/", (req, res) => {
 });
 
 const PORT = process.env.PORT || 5000;
+createDefaultAdmin();
 app.listen(PORT, () => logger.info(`Server Running on PORT ${PORT}`));

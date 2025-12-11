@@ -7,6 +7,68 @@ const TempFamily = require("../models/onboarding/TempFamily");
 const TempDeclaration = require("../models/onboarding/TempDeclaration");
 const TempOffice = require("../models/onboarding/TempOffice");
 const { v4: uuidv4 } = require("uuid");
+const { generateToken } = require("../utils/generateToken");
+const EmployeeUser = require("../models/EmployeeUser");
+
+exports.registerEmployee = async (req, res) => {
+  try {
+    const { firstName, lastName, email, password } = req.body;
+
+    if (!firstName || !lastName || !email || !password) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    let existing = await EmployeeUser.findOne({ email });
+    if (existing) {
+      return res.status(400).json({ message: "Email already registered" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const user = await EmployeeUser.create({
+      firstName,
+      lastName,
+      email,
+      password: hashedPassword
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Employee registered successfully",
+      token: generateToken(user),
+      user
+    });
+  } catch (err) {
+    return res.status(500).json({ message: "Registration failed", error: err.message });
+  }
+};
+
+// Login
+exports.loginEmployee = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const user = await EmployeeUser.findOne({ email });
+
+    if (!user) return res.status(401).json({ message: "Invalid email or password" });
+
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) return res.status(401).json({ message: "Invalid email or password" });
+
+    return res.status(200).json({
+      success: true,
+      message: "Login successful",
+      token: generateToken(user),
+      user
+    });
+  } catch (err) {
+    return res.status(500).json({ message: "Login failed", error: err.message });
+  }
+};
+
+
+
 
 exports.syncPersonalInfo = async (req, res) => {
   try {
