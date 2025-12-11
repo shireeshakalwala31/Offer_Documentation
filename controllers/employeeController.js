@@ -449,76 +449,115 @@ exports.syncAcademicDetails = async (req, res) => {
 // STEP-4: Experience Save + Sync
 exports.syncExperienceDetails = async (req, res) => {
   try {
-    const { draftId, experiences } = req.body;
+    const { draftId } = req.body;
 
     if (!draftId) {
       return res.status(400).json({
         success: false,
-        message: "draftId is required"
+        message: "draftId is required",
       });
     }
 
-    const experienceList = Array.isArray(experiences)
-      ? experiences
-      : JSON.parse(experiences || "[]");
+    let experienceList = [];
+
+    // Accept array OR JSON string
+    if (req.body.experience) {
+      try {
+        experienceList = Array.isArray(req.body.experience)
+          ? req.body.experience
+          : JSON.parse(req.body.experience);
+      } catch (err) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid experience format. Must be array or JSON string.",
+        });
+      }
+    }
 
     if (!experienceList.length) {
       return res.status(400).json({
         success: false,
-        message: "At least one experience record required"
+        message: "At least one experience entry is required.",
       });
     }
 
-    // Validate each record
-    for (let i = 0; i < experienceList.length; i++) {
-      const row = experienceList[i];
-      if (!row.employerName) {
-        return res.status(400).json({
-          success: false,
-          message: `Employer Name required at row ${i + 1}`
-        });
-      }
-      if (!row.fromDate) {
-        return res.status(400).json({
-          success: false,
-          message: `From Date required at row ${i + 1}`
-        });
-      }
-      row.draftId = draftId;
-    }
+    // ============================
+    // NORMALIZE + VALIDATE FIELDS
+    // ============================
+    experienceList = experienceList.map((row, i) => {
+      const rowNo = i + 1;
 
-    // Remove old experience entries and insert new ones
+      const normalized = {
+        draftId,
+
+        employerName:
+          row.employerName ||
+          row.companyName ||
+          row.organization ||
+          "",
+        designation: row.designation || row.role || "",
+        fromDate: row.fromDate || row.startDate || "",
+        toDate: row.toDate || row.endDate || "",
+        address: row.address || "",
+        reasonForLeaving: row.reasonForLeaving || row.reason || "",
+        salary: row.salary || row.lastSalary || "",
+        serialNo: rowNo,
+      };
+
+      // ========== VALIDATION ==========
+      if (!normalized.employerName.trim()) {
+        throw new Error(`Employer Name required at row ${rowNo}`);
+      }
+
+      if (!normalized.designation.trim()) {
+        throw new Error(`Designation required at row ${rowNo}`);
+      }
+
+      if (!normalized.fromDate.trim()) {
+        throw new Error(`From Date required at row ${rowNo}`);
+      }
+
+      if (!normalized.toDate.trim()) {
+        throw new Error(`To Date required at row ${rowNo}`);
+      }
+
+      return normalized;
+    });
+
+    // ============================
+    // SAVE TO TEMP
+    // ============================
     await TempExperience.deleteMany({ draftId });
     await TempExperience.insertMany(experienceList);
 
-    // Sync to Master for UI display
+    // ============================
+    // SYNC TO MASTER
+    // ============================
     let master = await EmployeeMaster.findOne({ draftId });
     if (!master) master = new EmployeeMaster({ draftId });
 
     master.experienceDetails = experienceList;
-
     master.status = "draft";
-    await master.save();
 
-    // Fetch updated list for response
-    const savedData = await TempExperience.find({ draftId }).sort({ serialNo: 1 });
+    await master.save();
 
     return res.status(200).json({
       success: true,
       message: "Experience details saved & synced successfully",
       draftId,
-      data: savedData
+      data: experienceList,
     });
 
   } catch (error) {
     console.error("Experience Save Error:", error);
     return res.status(500).json({
       success: false,
-      message: "Failed to save experience details",
-      error: error.message
+      message: "Backend Failure",
+      error: error.message,
     });
   }
 };
+
 
 exports.syncFamilyDetails = async (req, res) => {
   try {
