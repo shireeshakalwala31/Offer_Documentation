@@ -19,9 +19,9 @@ exports.verifyToken = async (req, res, next) => {
       req.admin = user;    // REQUIRED FIX
     } 
     else if (decoded.role === "employee") {
-      user = await Employee.findById(decoded.id).select("-password");
-      req.employee = user;
-    }
+  user = await EmployeeUser.findById(decoded.id).select("-password");
+}
+
 
     if (!user) {
       return res.status(401).json({ message: "Unauthorized user" });
