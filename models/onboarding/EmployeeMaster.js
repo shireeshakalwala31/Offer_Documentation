@@ -2,32 +2,36 @@ const mongoose = require("mongoose");
 
 const employeeMasterSchema = new mongoose.Schema(
   {
-    draftId: { type: String, required: true, unique: true },
+    draftId: {
+      type: String,
+      required: true,
+      unique: true,
+      index: true
+    },
 
-    // Unique Employee Code after HR approval
-    employeeCode: { type: String, unique: true },
+    // Onboarding Sections
+    personal: { type: Object, default: {} },          
+    pfDetails: { type: Object, default: {} },          
+    academicDetails: { type: Array, default: [] },     
+    experienceDetails: { type: Array, default: [] },   
+    familyDetails: { type: Array, default: [] },       
+    declarationDetails: { type: Object, default: {} }, 
+    officeUseDetails: { type: Object, default: {} },   
 
-    // Grouping like existing structure
-    personal: Object,             // Personal Details
-    pfDetails: Object,             // PF / UAN / Bank
-    academicDetails: Array,        // Education history
-    experienceDetails: Array,      // Work exp history
-    familyDetails: Array,          // Family members
-    declarationDetails: Object,    // Yes/No compliance + signatures
-    officeUseDetails: Object,      // HR filled info (protected)
-
-    // Tracking
-    submittedAt: { type: Date, default: null },
+    // Status Tracking
     status: {
       type: String,
       enum: ["draft", "submitted", "verified", "approved"],
       default: "draft"
     },
 
-    // Who approved onboarding
+    // When employee submits
+    submittedAt: { type: Date, default: null },
+
+    // Admin verification / approval
     approvedBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Admin",
+      ref: "HrAdmin",
       default: null
     },
     approvedAt: { type: Date, default: null }

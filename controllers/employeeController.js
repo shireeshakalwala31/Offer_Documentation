@@ -660,7 +660,7 @@ exports.mergeOnboarding = async (req, res) => {
       });
     }
 
-    // Correct field name validation
+    // Validate all required onboarding sections
     if (
       !master.personal ||
       !master.pfDetails ||
@@ -676,17 +676,13 @@ exports.mergeOnboarding = async (req, res) => {
       });
     }
 
-    // Generate Employee Code
-    const employeeCode = "EMP-" + draftId.slice(-4).toUpperCase();
-
-    master.employeeCode = employeeCode;
-    master.status = "approved";
-    master.approvedBy = req.admin?._id || null;
+    // Status updated by employee
+    master.status = "submitted";
     master.approvedAt = new Date();
 
     await master.save();
 
-    // Delete temp data after successful merge
+    // Delete temporary onboarding data
     await Promise.all([
       TempPersonal.deleteOne({ draftId }),
       TempPF.deleteOne({ draftId }),
@@ -697,22 +693,22 @@ exports.mergeOnboarding = async (req, res) => {
       TempOffice.deleteOne({ draftId }),
     ]);
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      message: "Onboarding completed and merged successfully",
-      employeeCode,
+      message: "Onboarding submitted successfully",
       data: master
     });
 
   } catch (error) {
     console.error("Merge Onboarding Error:", error);
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Failed to complete onboarding",
       error: error.message
     });
   }
 };
+
 
 
 
