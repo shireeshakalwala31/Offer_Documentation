@@ -463,12 +463,14 @@ exports.syncExperienceDetails = async (req, res) => {
 
     let experienceList = [];
 
-    // Accept array or JSON string sent by FormData
-    if (req.body.experience) {
+    // Accept both `experience` AND `experiences`
+    let incomingData = req.body.experience || req.body.experiences;
+
+    if (incomingData) {
       try {
-        experienceList = Array.isArray(req.body.experience)
-          ? req.body.experience
-          : JSON.parse(req.body.experience);
+        experienceList = Array.isArray(incomingData)
+          ? incomingData
+          : JSON.parse(incomingData);
       } catch (err) {
         return res.status(400).json({
           success: false,
@@ -477,7 +479,7 @@ exports.syncExperienceDetails = async (req, res) => {
       }
     }
 
-    // Must have at least 1 row
+    // Validate existence
     if (!experienceList.length) {
       return res.status(400).json({
         success: false,
@@ -485,9 +487,7 @@ exports.syncExperienceDetails = async (req, res) => {
       });
     }
 
-    // =====================================
-    // NORMALIZE + VALIDATE EACH ENTRY
-    // =====================================
+    // Normalize + Validate
     experienceList = experienceList.map((row, index) => {
       const rowNo = index + 1;
 
@@ -511,7 +511,7 @@ exports.syncExperienceDetails = async (req, res) => {
         serialNo: rowNo,
       };
 
-      // VALIDATION
+      // Field validations
       if (!normalized.employerName)
         throw new Error(`Employer Name required at row ${rowNo}`);
 
@@ -527,17 +527,12 @@ exports.syncExperienceDetails = async (req, res) => {
       return normalized;
     });
 
-    // =====================================
-    // SAVE TEMP EXPERIENCE
-    // =====================================
+    // Save temp
     await TempExperience.deleteMany({ draftId });
     await TempExperience.insertMany(experienceList);
 
-    // =====================================
-    // SYNC TO MASTER
-    // =====================================
+    // Sync master
     let master = await EmployeeMaster.findOne({ draftId });
-
     if (!master) master = new EmployeeMaster({ draftId });
 
     master.experienceDetails = experienceList;
@@ -545,9 +540,6 @@ exports.syncExperienceDetails = async (req, res) => {
 
     await master.save();
 
-    // =====================================
-    // SUCCESS RESPONSE
-    // =====================================
     return res.status(200).json({
       success: true,
       message: "Experience details saved & synced successfully",
@@ -558,7 +550,6 @@ exports.syncExperienceDetails = async (req, res) => {
   } catch (error) {
     console.error("Experience Save Error:", error);
 
-    // If validation error → return 400, not 500
     if (
       error.message.includes("required at row") ||
       error.message.includes("missing") ||
@@ -570,7 +561,6 @@ exports.syncExperienceDetails = async (req, res) => {
       });
     }
 
-    // All other errors → internal server error
     return res.status(500).json({
       success: false,
       message: "Backend Failure",
