@@ -3,17 +3,7 @@ const HrAdmin = require("../models/Admin");
 const EmployeeUser = require("../models/onboarding/EmployeeUser");
 
 exports.verifyToken = async (req, res, next) => {
-  let token = null;
-
-  // Check Header
-  if (req.headers.authorization?.startsWith("Bearer ")) {
-    token = req.headers.authorization.split(" ")[1];
-  }
-
-  // Check Query param (for download URLs)
-  if (!token && req.query.token) {
-    token = req.query.token;
-  }
+  let token = req.headers.authorization?.split(" ")[1];
 
   if (!token) {
     return res.status(401).json({ message: "Token missing" });
@@ -23,8 +13,14 @@ exports.verifyToken = async (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     let user = null;
+
     if (decoded.role === "admin") {
       user = await HrAdmin.findById(decoded.id).select("-password");
+      req.admin = user;    // REQUIRED FIX
+    } 
+    else if (decoded.role === "employee") {
+      user = await Employee.findById(decoded.id).select("-password");
+      req.employee = user;
     }
 
     if (!user) {
@@ -32,11 +28,15 @@ exports.verifyToken = async (req, res, next) => {
     }
 
     req.user = user;
+    req.role = decoded.role;
+
     next();
-  } catch (err) {
-    return res.status(401).json({ message: "Invalid token" });
+
+  } catch (error) {
+    return res.status(401).json({ message: "Invalid or expired token" });
   }
 };
+
 
 
 
