@@ -9,6 +9,8 @@ const TempOffice = require("../models/onboarding/TempOffice");
 const { v4: uuidv4 } = require("uuid");
 const { generateToken } = require("../utils/generateToken");
 const EmployeeUser = require("../models/onboarding/EmployeeUser");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
 
 exports.registerEmployee = async (req, res) => {
   try {

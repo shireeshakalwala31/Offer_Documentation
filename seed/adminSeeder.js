@@ -3,19 +3,19 @@ const HrAdmin = require("../models/Admin");
 
 async function createDefaultAdmin() {
   try {
-    const existingAdmin = await HrAdmin.findOne({ email: "admin@company.com" });
+    const existingAdmin = await HrAdmin.findOne({ email: "lufrurefrowa-6424@yopmail.com" });
 
     if (existingAdmin) {
       console.log("✔ Admin already exists. Skipping admin creation.");
       return;
     }
 
-    const hashedPassword = await bcrypt.hash("Admin@123", 10);
+    const hashedPassword = await bcrypt.hash("Admin@1234", 10);
 
     const admin = new HrAdmin({
       firstName: "SUPER",
       lastName: "ADMIN",
-      email: "admin@company.com",
+      email: "lufrurefrowa-6424@yopmail.com",
       password: hashedPassword,
       role: "admin"
     });
