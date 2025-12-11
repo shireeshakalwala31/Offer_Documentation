@@ -1688,3 +1688,10 @@
 2025-12-11T07:51:41.378Z  INFO: Server Running on PORT 5000
 2025-12-11T07:51:42.465Z  INFO: MongoDB connected
 2025-12-11T07:51:42.530Z  INFO: ✔ Admin already exists. Skipping admin creation.
+2025-12-11T08:08:11.129Z  INFO: [dotenv@17.2.3] injecting env (10) from .env [2m-- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }[0m
+2025-12-11T08:08:18.727Z  ERROR: (node:19608) [MONGODB DRIVER] Warning: useNewUrlParser is a deprecated option: useNewUrlParser has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version
+(Use `node --trace-warnings ...` to show where the warning was created)
+2025-12-11T08:08:18.728Z  ERROR: (node:19608) [MONGODB DRIVER] Warning: useUnifiedTopology is a deprecated option: useUnifiedTopology has no effect since Node.js Driver version 4.0.0 and will be removed in the next major version
+2025-12-11T08:08:18.729Z  INFO: Server Running on PORT 5000
+2025-12-11T08:08:19.349Z  INFO: MongoDB connected
+2025-12-11T08:08:19.401Z  INFO: ✔ Admin already exists. Skipping admin creation.

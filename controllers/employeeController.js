@@ -214,74 +214,110 @@ exports.syncPersonalInfo = async (req, res) => {
 
 
 // step 2:PF Information Sync
-exports.syncPFInfo=async(req,res)=>{
-    try{
-        const{draftId,
-      pfAccountNumber,
+exports.syncPFInfo = async (req, res) => {
+  try {
+    const {
+      draftId,
+      pfAction,
       uanNumber,
-      esicNumber,
+      existingPfNumber,
       bankAccountNumber,
       bankName,
       ifscCode,
       passportNumber,
-      passportExpiry,
-      drivingLicenseNumber,
-      drivingLicenseExpiry,
+      passportValidity,
+      placeOfIssue,
       languagesKnown,
       motherTongue,
       identificationMark1,
-      identificationMark2}=req.body
-      if(!draftId){
-        return res.status(400).json({success:false,message:"Draft ID is Required"})
-      }
-      if (bankAccountNumber && !/^[0-9]{8,18}$/.test(bankAccountNumber)) {
+      identificationMark2,
+      mobileNumber,
+      email
+    } = req.body;
+
+    if (!draftId) {
+      return res.status(400).json({
+        success: false,
+        message: "Draft ID is required"
+      });
+    }
+
+    // VALIDATIONS
+    if (bankAccountNumber && !/^[0-9]{8,18}$/.test(bankAccountNumber)) {
       return res.status(400).json({
         success: false,
         message: "Invalid Bank Account Number"
       });
     }
+
     if (ifscCode && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode)) {
       return res.status(400).json({
         success: false,
         message: "Invalid IFSC Code"
       });
     }
+
     if (uanNumber && !/^[0-9]{12}$/.test(uanNumber)) {
       return res.status(400).json({
         success: false,
-        message: "UAN must be 12 digits"
+        message: "UAN Number must be 12 digits"
       });
     }
-    let temp=await TempPF.findOne({draftId});
-    if(!temp){
-       temp = new TempPF(req.body);
-    }else{
-        Object.assign(temp,req.body)
+
+    // TRANSFORM FRONTEND FIELDS TO MATCH SCHEMA
+    const payload = {
+      draftId,
+      pfAction,
+      uanNumber,
+      existingPfNumber,
+      bankAccountNumber,
+      bankName,
+      ifscCode,
+      passportNumber,
+      passportValidity,
+      placeOfIssue,
+      languages: languagesKnown,
+      motherTongue,
+      idMark1: identificationMark1,
+      idMark2: identificationMark2,
+      mobileNumber,
+      email
+    };
+
+    let temp = await TempPF.findOne({ draftId });
+
+    if (!temp) {
+      temp = new TempPF(payload);
+    } else {
+      Object.assign(temp, payload);
     }
-    await temp.save()
-    let master=await EmployeeMaster.findOne({draftId});
-    if(!master){
-        master=new EmployeeMaster({draftId})
-    }
+
+    await temp.save();
+
+    let master = await EmployeeMaster.findOne({ draftId });
+    if (!master) master = new EmployeeMaster({ draftId });
+
     master.pfDetails = temp.toObject();
     master.status = "draft";
     await master.save();
-     return res.status(200).json({
+
+    return res.status(200).json({
       success: true,
       message: "PF Details saved & synced successfully",
       draftId,
       data: temp
     });
-    }catch(err){
-        console.error("PF Save Error:", error);
+
+  } catch (err) {
+    console.error("PF Save Error:", err);
     return res.status(500).json({
       success: false,
       message: "Failed to save PF details",
-      error: error.message
+      error: err.message
     });
+  }
+};
 
-    }
-}
 // Step 3: Academic Information Sync
 exports.syncAcademicDetails = async (req, res) => {
   try {
@@ -290,22 +326,22 @@ exports.syncAcademicDetails = async (req, res) => {
     if (!draftId) {
       return res.status(400).json({
         success: false,
-        message: "draftId is required"
+        message: "draftId is required",
       });
     }
 
     let academicList = [];
 
-    // Accept array directly or JSON string
+    // Accept array OR JSON string
     if (req.body.academics) {
       try {
         academicList = Array.isArray(req.body.academics)
           ? req.body.academics
           : JSON.parse(req.body.academics);
-      } catch (parseError) {
+      } catch (err) {
         return res.status(400).json({
           success: false,
-          message: "Invalid academics format"
+          message: "Invalid academics format. Must be array or JSON string.",
         });
       }
     }
@@ -313,37 +349,76 @@ exports.syncAcademicDetails = async (req, res) => {
     if (!academicList.length) {
       return res.status(400).json({
         success: false,
-        message: "At least one Academic entry required"
+        message: "At least one academic entry is required.",
       });
     }
 
-    // Add draftId and VALIDATE ALL REQUIRED FIELDS
-    academicList.forEach((row, i) => {
+    // ============================
+    // NORMALIZE + VALIDATE FIELDS
+    // ============================
+    academicList = academicList.map((row, i) => {
+      const rowNo = i + 1;
 
-      if (!row.qualification?.trim()) {
-        throw new Error(`Qualification missing at row ${i + 1}`);
+      // Accept multiple field names from frontend
+      const normalized = {
+        draftId,
+        qualification:
+          row.qualification ||
+          row.course ||
+          row.degree ||
+          "",
+        schoolOrCollege:
+          row.schoolOrCollege ||
+          row.instituteName ||
+          row.collegeName ||
+          row.school ||
+          "",
+        boardOrUniversity:
+          row.boardOrUniversity ||
+          row.university ||
+          row.board ||
+          "",
+        passYear:
+          row.passYear ||
+          row.yearOfPassing ||
+          "",
+        Specialization: row.Specialization || row.specialization || "",
+        marks: row.marks || row.score || "",
+        studyMode: row.studyMode || row.mode || "",
+        certificateNo: row.certificateNo || "",
+        documentUrl: row.documentUrl || "",
+        serialNo: i + 1,
+      };
+
+      // ===== VALIDATION =====
+      if (!normalized.qualification.trim()) {
+        throw new Error(`Qualification missing at row ${rowNo}`);
       }
 
-      if (!row.schoolOrCollege?.trim()) {
-        throw new Error(`School/College missing at row ${i + 1}`);
+      if (!normalized.schoolOrCollege.trim()) {
+        throw new Error(`School/College missing at row ${rowNo}`);
       }
 
-      if (!row.boardOrUniversity?.trim()) {
-        throw new Error(`Board/University missing at row ${i + 1}`);
+      if (!normalized.boardOrUniversity.trim()) {
+        throw new Error(`Board/University missing at row ${rowNo}`);
       }
 
-      if (!row.passYear?.trim()) {
-        throw new Error(`Pass Year missing at row ${i + 1}`);
+      if (!normalized.passYear.trim()) {
+        throw new Error(`Pass Year missing at row ${rowNo}`);
       }
 
-      row.draftId = draftId;
+      return normalized;
     });
 
-    // Delete previous and insert fresh data
+    // ====================================
+    // DELETE OLD + INSERT NEW RECORDS
+    // ====================================
     await TempAcademic.deleteMany({ draftId });
     await TempAcademic.insertMany(academicList);
 
-    // Sync to Master
+    // ====================================
+    // SYNC TO MASTER COLLECTION
+    // ====================================
     let master = await EmployeeMaster.findOne({ draftId });
     if (!master) master = new EmployeeMaster({ draftId });
 
@@ -355,7 +430,7 @@ exports.syncAcademicDetails = async (req, res) => {
       success: true,
       message: "Academic details saved & synced successfully",
       draftId,
-      data: academicList
+      data: academicList,
     });
 
   } catch (error) {
@@ -363,10 +438,11 @@ exports.syncAcademicDetails = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Backend Failure",
-      error: error.message
+      error: error.message,
     });
   }
 };
+
 
 
 
