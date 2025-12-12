@@ -24,7 +24,7 @@ exports.registerEmployee = async (req, res) => {
     // Check existing user
     const exists = await EmployeeUser.findOne({ email });
     if (exists) {
-      return res.json({ message: "Email already registered" });
+      return res.status(409).json({ message: "Email already registered" });
     }
 
     // Hash password
@@ -34,18 +34,20 @@ exports.registerEmployee = async (req, res) => {
       firstName,
       lastName,
       email,
-      password: hashed
+      password: hashed,
+      role: "employee" // Important: ensure role is set
     });
 
     await user.save();
 
     return res.status(201).json({
+      success: true,
       message: "Employee registered successfully",
       user: {
         id: user._id,
-        firstName,
-        lastName,
-        email
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email
       }
     });
 
@@ -72,9 +74,15 @@ exports.loginEmployee = async (req, res) => {
       return res.status(401).json({ message: "Invalid password" });
     }
 
-    
+    // FIX: Generate JWT token
+    const token = jwt.sign(
+      { id: user._id, role: "employee" },
+      process.env.JWT_SECRET,
+      { expiresIn: "1d" }
+    );
 
     return res.json({
+      success: true,
       message: "Login successful",
       token,
       user: {
@@ -90,6 +98,7 @@ exports.loginEmployee = async (req, res) => {
     res.status(500).json({ message: "Server error", error: err.message });
   }
 };
+
 
 // Step 1:Personal Information Sync
 
