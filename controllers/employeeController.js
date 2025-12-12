@@ -431,9 +431,9 @@ exports.syncAcademicDetails = async (req, res) => {
       });
     }
 
+    // Academic List (Array or JSON string)
     let academicList = [];
 
-    // Accept array OR JSON string
     if (req.body.academics) {
       try {
         academicList = Array.isArray(req.body.academics)
@@ -454,76 +454,111 @@ exports.syncAcademicDetails = async (req, res) => {
       });
     }
 
-    // ============================
-    // NORMALIZE + VALIDATE FIELDS
-    // ============================
-    academicList = academicList.map((row, i) => {
+    // ========================================
+    // NORMALIZE + VALIDATE EACH ENTRY
+    // ========================================
+    const normalizedList = academicList.map((row, i) => {
       const rowNo = i + 1;
+      const r = row || {};
 
-      // Accept multiple field names from frontend
+      // Get Base64 document OR url
+      const document = {};
+
+      if (r.document && typeof r.document === "object") {
+        // Already structured document
+        document.fileName = r.document.fileName || "";
+        document.mimeType = r.document.mimeType || "";
+        document.fileSize = r.document.fileSize || 0;
+        document.base64 = r.document.base64 || "";
+        document.url = r.document.url || "";
+        document.uploadedAt = new Date();
+      } 
+      else if (r.documentUrl) {
+        document.url = r.documentUrl;
+        document.uploadedAt = new Date();
+      } 
+      else if (r.fileBase64) {
+        document.base64 = r.fileBase64;
+        document.uploadedAt = new Date();
+      }
+
       const normalized = {
         draftId,
+        serialNo: rowNo,
+
         qualification:
-          row.qualification ||
-          row.course ||
-          row.degree ||
+          r.qualification ||
+          r.course ||
+          r.degree ||
           "",
+
+        Specialization:
+          r.Specialization ||
+          r.specialization ||
+          r.subject ||
+          "",
+
         schoolOrCollege:
-          row.schoolOrCollege ||
-          row.instituteName ||
-          row.collegeName ||
-          row.school ||
+          r.schoolOrCollege ||
+          r.instituteName ||
+          r.collegeName ||
+          r.school ||
           "",
+
         boardOrUniversity:
-          row.boardOrUniversity ||
-          row.university ||
-          row.board ||
+          r.boardOrUniversity ||
+          r.university ||
+          r.board ||
           "",
+
+        marks: r.marks || r.score || "",
+
+        studyMode:
+          r.studyMode ||
+          r.mode ||
+          r.type ||
+          "",
+
         passYear:
-          row.passYear ||
-          row.yearOfPassing ||
+          r.passYear ||
+          r.yearOfPassing ||
           "",
-        Specialization: row.Specialization || row.specialization || "",
-        marks: row.marks || row.score || "",
-        studyMode: row.studyMode || row.mode || "",
-        certificateNo: row.certificateNo || "",
-        documentUrl: row.documentUrl || "",
-        serialNo: i + 1,
+
+        certificateNo: r.certificateNo || "",
+
+        document,
       };
 
       // ===== VALIDATION =====
-      if (!normalized.qualification.trim()) {
+      if (!normalized.qualification.trim())
         throw new Error(`Qualification missing at row ${rowNo}`);
-      }
 
-      if (!normalized.schoolOrCollege.trim()) {
+      if (!normalized.schoolOrCollege.trim())
         throw new Error(`School/College missing at row ${rowNo}`);
-      }
 
-      if (!normalized.boardOrUniversity.trim()) {
+      if (!normalized.boardOrUniversity.trim())
         throw new Error(`Board/University missing at row ${rowNo}`);
-      }
 
-      if (!normalized.passYear.trim()) {
+      if (!normalized.passYear.trim())
         throw new Error(`Pass Year missing at row ${rowNo}`);
-      }
 
       return normalized;
     });
 
-    // ====================================
-    // DELETE OLD + INSERT NEW RECORDS
-    // ====================================
+    // ========================================
+    // DELETE -> INSERT
+    // ========================================
     await TempAcademic.deleteMany({ draftId });
-    await TempAcademic.insertMany(academicList);
+    await TempAcademic.insertMany(normalizedList);
 
-    // ====================================
-    // SYNC TO MASTER COLLECTION
-    // ====================================
+    // ========================================
+    // SYNC TO EmployeeMaster
+    // ========================================
     let master = await EmployeeMaster.findOne({ draftId });
+
     if (!master) master = new EmployeeMaster({ draftId });
 
-    master.academicDetails = academicList;
+    master.academicDetails = normalizedList;
     master.status = "draft";
     await master.save();
 
@@ -531,7 +566,7 @@ exports.syncAcademicDetails = async (req, res) => {
       success: true,
       message: "Academic details saved & synced successfully",
       draftId,
-      data: academicList,
+      data: normalizedList,
     });
 
   } catch (error) {
