@@ -11,7 +11,17 @@ const TempPersonalSchema = new mongoose.Schema({
     index: true
   },
 
-  // Profile Photo URL/Path
+  // Email ID
+  email: {
+    type: String,
+    required: [true, "Email address is required"],
+    unique: true,
+    lowercase: true,
+    trim: true,
+    match: [/^\S+@\S+\.\S+$/, "Invalid email format"]
+  },
+
+  // Profile Photo URL
   photoUrl: {
     type: Object,
     default: null
@@ -35,6 +45,7 @@ const TempPersonalSchema = new mongoose.Schema({
     type: Date,
     required: true
   },
+
   age: { type: Number, min: 18, max: 60 },
 
   placeOfBirth: { type: String, trim: true },
@@ -60,10 +71,19 @@ const TempPersonalSchema = new mongoose.Schema({
     required: true
   },
 
+  // Marital Status + Marriage Date
   maritalStatus: {
     type: String,
     enum: ["Single", "Married", "Separated", "Divorced", "Widowed"],
     default: "Single"
+  },
+
+  marriageDate: {
+    type: Date,
+    default: null,
+    required: function () {
+      return this.maritalStatus === "Married";
+    }
   },
 
   // Contact Details - Present
@@ -112,8 +132,7 @@ TempPersonalSchema.pre("save", function (next) {
   next();
 });
 
-
-// +91 Normalization
+// +91 Auto Normalization
 TempPersonalSchema.pre("save", function (next) {
   if (this.presentPhone && !this.presentPhone.startsWith("+91")) {
     this.presentPhone = "+91" + this.presentPhone;
@@ -124,8 +143,7 @@ TempPersonalSchema.pre("save", function (next) {
   next();
 });
 
-
-// Encrypt Aadhaar, PAN & DL before saving to DB
+// Encrypt Aadhaar / PAN / DL
 TempPersonalSchema.pre("save", function (next) {
   try {
     if (this.isModified("aadhaar") && this.aadhaar && typeof this.aadhaar === "string") {
@@ -142,6 +160,5 @@ TempPersonalSchema.pre("save", function (next) {
     next(err);
   }
 });
-
 
 module.exports = mongoose.model("TempPersonal", TempPersonalSchema);

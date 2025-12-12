@@ -72,12 +72,7 @@ exports.loginEmployee = async (req, res) => {
       return res.status(401).json({ message: "Invalid password" });
     }
 
-    const token = jwt.sign(
-  { id: user._id, role: "employee" },
-  process.env.JWT_SECRET,
-  { expiresIn: "1d" }
-);
-
+    
 
     return res.json({
       message: "Login successful",
@@ -96,9 +91,7 @@ exports.loginEmployee = async (req, res) => {
   }
 };
 
-
-
-
+// Step 1:Personal Information Sync
 
 exports.syncPersonalInfo = async (req, res) => {
   try {
@@ -107,25 +100,39 @@ exports.syncPersonalInfo = async (req, res) => {
     console.log("Raw Body:", req.body);
     console.log("File:", req.file);
 
-    // SAFELY PARSE BODY (Fix for FormData JSON)
+    // PARSE FORM-DATA STRING BODY SAFELY
     let parsedBody = {};
-
     try {
-      parsedBody = typeof req.body === "string"
-        ? JSON.parse(req.body)
-        : req.body;
+      parsedBody =
+        typeof req.body === "string" ? JSON.parse(req.body) : req.body;
     } catch (parseErr) {
       parsedBody = req.body;
     }
 
     console.log("PARSED BODY =>", parsedBody);
 
-    // FIELD MAPPING SUPPORTING FRONTEND NAMES
+    // FRONTEND → BACKEND FIELD NORMALIZATION
     const payload = {
       ...parsedBody,
+      email:
+        parsedBody.email ||
+        parsedBody.personalEmail ||
+        parsedBody.userEmail ||
+        "",
+
+      // DOB variations
       dateOfBirth: parsedBody.dateOfBirth || parsedBody.dob,
+
+      // Aadhar variations
       aadhaar: parsedBody.aadhaar || parsedBody.aadhar,
-      permanentPhone: parsedBody.permanentPhone || parsedBody.permPhone,
+
+      // Phone variations
+      permanentPhone:
+        parsedBody.permanentPhone || parsedBody.permPhone || "",
+      presentPhone: parsedBody.presentPhone,
+
+      maritalStatus: parsedBody.maritalStatus || "Single",
+      marriageDate: parsedBody.marriageDate || null
     };
 
     const {
@@ -133,27 +140,63 @@ exports.syncPersonalInfo = async (req, res) => {
       firstName,
       lastName,
       gender,
+      email,
+      maritalStatus,
+      marriageDate,
+      dateOfBirth,
       aadhaar,
       pan,
       presentPhone,
       permanentPhone,
-      dateOfBirth,
       ...restFields
     } = payload;
+
+    // =========================
+    // VALIDATION
+//
+
+    if (!email || email.trim() === "") {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required"
+      });
+    }
 
     if (!firstName || !lastName) {
       return res.status(400).json({
         success: false,
-        message: "First & Last Name required"
+        message: "First Name and Last Name are required"
       });
     }
 
+    if (!gender) {
+      return res.status(400).json({
+        success: false,
+        message: "Gender is required"
+      });
+    }
+
+    if (!dateOfBirth) {
+      return res.status(400).json({
+        success: false,
+        message: "Date of Birth is required"
+      });
+    }
+
+    if (maritalStatus === "Married" && !marriageDate) {
+      return res.status(400).json({
+        success: false,
+        message: "Marriage Date is required for Married employees"
+      });
+    }
+
+    // GENERATE DRAFT ID IF MISSING
     const generatedDraftId =
       draftId && draftId.trim() !== ""
         ? draftId
         : `DRAFT-${uuidv4()}`;
 
-    // PHOTO CONVERSION (BASE64)
+    // HANDLE FILE (PHOTO)
     let photo = undefined;
     if (req.file) {
       photo = {
@@ -161,12 +204,17 @@ exports.syncPersonalInfo = async (req, res) => {
         mimeType: req.file.mimetype,
         fileSize: req.file.size,
         base64: req.file.buffer.toString("base64"),
-        uploadedAt: new Date(),
+        uploadedAt: new Date()
       };
     }
 
-    // SAVE TEMP DATA
-    let temp = await TempPersonal.findOne({ draftId: generatedDraftId });
+    // =========================
+    // UPSERT INTO TEMP PERSONAL
+    //==========================
+
+    let temp = await TempPersonal.findOne({
+      draftId: generatedDraftId
+    });
 
     if (!temp) {
       temp = new TempPersonal({
@@ -174,26 +222,45 @@ exports.syncPersonalInfo = async (req, res) => {
         firstName,
         lastName,
         gender,
+        email,
+        dateOfBirth,
         aadhaar,
         pan,
         presentPhone,
         permanentPhone,
-        dateOfBirth,
+        maritalStatus,
+        marriageDate:
+          maritalStatus === "Married" ? marriageDate : null,
         ...restFields
       });
     } else {
       Object.assign(temp, payload);
+
+      // Force remove marriageDate if not Married
+      if (maritalStatus !== "Married") {
+        temp.marriageDate = null;
+      }
     }
 
     if (photo) temp.photoUrl = photo;
+
     await temp.save();
 
-    // SYNC INTO MASTER COLLECTION
-    let master = await EmployeeMaster.findOne({ draftId: generatedDraftId });
-    if (!master) master = new EmployeeMaster({ draftId: generatedDraftId });
+    // =========================
+    // SYNC TO MASTER
+    // ==========================
+
+    let master = await EmployeeMaster.findOne({
+      draftId: generatedDraftId
+    });
+
+    if (!master) {
+      master = new EmployeeMaster({ draftId: generatedDraftId });
+    }
 
     master.personal = temp.toObject();
     master.status = "draft";
+
     await master.save();
 
     return res.status(200).json({
@@ -205,6 +272,7 @@ exports.syncPersonalInfo = async (req, res) => {
 
   } catch (error) {
     console.error("Personal Save Error =>", error.stack || error);
+
     return res.status(500).json({
       success: false,
       message: "Failed to save personal info",
@@ -212,6 +280,7 @@ exports.syncPersonalInfo = async (req, res) => {
     });
   }
 };
+
 
 
 
