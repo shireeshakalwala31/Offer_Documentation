@@ -296,96 +296,118 @@ exports.syncPersonalInfo = async (req, res) => {
 // step 2:PF Information Sync
 exports.syncPFInfo = async (req, res) => {
   try {
-    const {
-      draftId,
-      pfAction,
-      uanNumber,
-      existingPfNumber,
-      bankAccountNumber,
-      bankName,
-      ifscCode,
-      passportNumber,
-      passportValidity,
-      placeOfIssue,
-      languagesKnown,
-      motherTongue,
-      identificationMark1,
-      identificationMark2,
-      mobileNumber,
-      email
-    } = req.body;
+    console.log("\n===== PF INFO: Incoming Data =====");
+    console.log(JSON.stringify(req.body, null, 2));
 
-    if (!draftId) {
+    const b = req.body || {};
+
+    if (!b.draftId) {
       return res.status(400).json({
         success: false,
-        message: "Draft ID is required"
+        message: "Draft ID is required",
       });
     }
 
     // VALIDATIONS
-    if (bankAccountNumber && !/^[0-9]{8,18}$/.test(bankAccountNumber)) {
+    if (b.bankAccountNumber && !/^[0-9]{8,18}$/.test(String(b.bankAccountNumber))) {
       return res.status(400).json({
         success: false,
-        message: "Invalid Bank Account Number"
+        message: "Invalid Bank Account Number",
       });
     }
 
-    if (ifscCode && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifscCode)) {
+    if (b.ifscCode && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(String(b.ifscCode).toUpperCase())) {
       return res.status(400).json({
         success: false,
-        message: "Invalid IFSC Code"
+        message: "Invalid IFSC Code",
       });
     }
 
-    if (uanNumber && !/^[0-9]{12}$/.test(uanNumber)) {
+    if (b.uanNumber && !/^[0-9]{12}$/.test(String(b.uanNumber))) {
       return res.status(400).json({
         success: false,
-        message: "UAN Number must be 12 digits"
+        message: "UAN Number must be 12 digits",
       });
     }
 
-    // TRANSFORM FRONTEND FIELDS TO MATCH SCHEMA
+    // NORMALIZE AND MAP FRONTEND FIELDS
     const payload = {
-      draftId,
-      pfAction,
-      uanNumber,
-      existingPfNumber,
-      bankAccountNumber,
-      bankName,
-      ifscCode,
-      passportNumber,
-      passportValidity,
-      placeOfIssue,
-      languages: languagesKnown,
-      motherTongue,
-      idMark1: identificationMark1,
-      idMark2: identificationMark2,
-      mobileNumber,
-      email
+      draftId: b.draftId,
+
+      pfAction: b.pfAction || "",
+
+      uanNumber: b.uanNumber ?? b.uan ?? null,
+      existingPfNumber: b.existingPfNumber ?? b.pfNumber ?? null,
+
+      bankAccountNumber: b.bankAccountNumber ?? b.bankAcc ?? null,
+      bankName: b.bankName || "",
+
+      ifscCode: (b.ifscCode ?? b.ifsc ?? "")
+        .toString()
+        .trim()
+        .toUpperCase(),
+
+      passportNumber: b.passportNumber ?? b.passport ?? null,
+      passportValidity: b.passportValidity ?? b.validity ?? "",
+      placeOfIssue: b.placeOfIssue ?? b.issuePlace ?? "",
+
+      languages: (() => {
+        if (Array.isArray(b.languagesKnown)) return b.languagesKnown;
+        if (Array.isArray(b.languages)) return b.languages;
+        if (typeof b.languagesKnown === "string") {
+          return b.languagesKnown.split(",").map((x) => x.trim()).filter(Boolean);
+        }
+        if (typeof b.languages === "string") {
+          return b.languages.split(",").map((x) => x.trim()).filter(Boolean);
+        }
+        return [];
+      })(),
+
+      motherTongue: b.motherTongue || "",
+      idMark1: b.idMark1 ?? b.identificationMark1 ?? "",
+      idMark2: b.idMark2 ?? b.identificationMark2 ?? "",
+
+      mobileNumber: b.mobileNumber ?? b.mobile ?? "",
+      email: b.email ? b.email.toLowerCase() : "",
     };
 
-    let temp = await TempPF.findOne({ draftId });
+    console.log("\n===== PF INFO: Normalized Payload =====");
+    console.log(JSON.stringify(payload, null, 2));
+
+    // FIND OR CREATE TEMP DOCUMENT
+    let temp = await TempPF.findOne({ draftId: payload.draftId });
 
     if (!temp) {
+      console.log("PF: Creating new TempPF document");
       temp = new TempPF(payload);
     } else {
-      Object.assign(temp, payload);
+      console.log("PF: Updating existing TempPF document");
+      temp.set(payload);
+
+      // Mixed type fields → mark modified so Mongoose saves them
+      ["uanNumber", "existingPfNumber", "bankAccountNumber", "passportNumber", "languages"]
+        .forEach((field) => temp.markModified(field));
     }
 
-    await temp.save();
+    await temp.save(); // encryption happens here (pre-save hooks)
 
-    let master = await EmployeeMaster.findOne({ draftId });
-    if (!master) master = new EmployeeMaster({ draftId });
+    console.log("\n===== PF INFO: Saved TempPF Document =====");
+    console.log(JSON.stringify(temp.toObject(), null, 2));
+
+    // SYNC INTO EMPLOYEE MASTER
+    let master = await EmployeeMaster.findOne({ draftId: payload.draftId });
+    if (!master) master = new EmployeeMaster({ draftId: payload.draftId });
 
     master.pfDetails = temp.toObject();
     master.status = "draft";
+
     await master.save();
 
     return res.status(200).json({
       success: true,
       message: "PF Details saved & synced successfully",
-      draftId,
-      data: temp
+      draftId: payload.draftId,
+      data: temp.toObject(),
     });
 
   } catch (err) {
@@ -393,11 +415,10 @@ exports.syncPFInfo = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to save PF details",
-      error: err.message
+      error: err.message,
     });
   }
 };
-
 // Step 3: Academic Information Sync
 exports.syncAcademicDetails = async (req, res) => {
   try {
