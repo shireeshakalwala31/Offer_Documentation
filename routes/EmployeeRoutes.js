@@ -71,7 +71,7 @@ router.post(
 router.post("/submit", verifyToken, employeeOnly, mergeOnboarding);
 
 // Fetch One Employee
-router.get("/employee/:employeeCode", verifyToken, getEmployeeDetails);
+router.get("/employee", verifyToken, getEmployeeDetails);
 
 // Fetch All Employees
 router.get("/employees", verifyToken, adminOnly, getAllEmployees);

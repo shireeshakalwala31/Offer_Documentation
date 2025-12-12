@@ -73,10 +73,11 @@ exports.loginEmployee = async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: user._id, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: "1d" }
-    );
+  { id: user._id, role: "employee" },
+  process.env.JWT_SECRET,
+  { expiresIn: "1d" }
+);
+
 
     return res.json({
       message: "Login successful",

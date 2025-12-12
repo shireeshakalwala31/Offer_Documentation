@@ -20,6 +20,7 @@ exports.verifyToken = async (req, res, next) => {
     } 
     else if (decoded.role === "employee") {
   user = await EmployeeUser.findById(decoded.id).select("-password");
+  req.employee = user;  // add this line
 }
 
 
@@ -28,7 +29,7 @@ exports.verifyToken = async (req, res, next) => {
     }
 
     req.user = user;
-    req.role = decoded.role;
+req.role = decoded.role;
 
     next();
 
