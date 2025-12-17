@@ -796,7 +796,7 @@ exports.syncFamilyDetails = async (req, res) => {
 };
 
 
-// Step 5: Declaration Sync
+// Step 5: Declaration Sync (FINAL FIXED VERSION)
 exports.syncDeclarationDetails = async (req, res) => {
   try {
     const { draftId } = req.body;
@@ -808,18 +808,19 @@ exports.syncDeclarationDetails = async (req, res) => {
       });
     }
 
-    // Clone body safely
+    // clone body
     const declarationData = { ...req.body };
 
     // ================================
     // YES / NO → BOOLEAN NORMALIZATION
     // ================================
-    const yesNoToBool = (value) => {
+    const yesNoToBool = (value, defaultValue = false) => {
       if (typeof value === "boolean") return value;
       if (typeof value === "string") {
-        return value.toLowerCase() === "yes";
+        if (value.toLowerCase() === "yes") return true;
+        if (value.toLowerCase() === "no") return false;
       }
-      return false;
+      return defaultValue; // handles "", null, undefined
     };
 
     const booleanFields = [
@@ -835,24 +836,29 @@ exports.syncDeclarationDetails = async (req, res) => {
     ];
 
     booleanFields.forEach((field) => {
-      if (field in declarationData) {
-        declarationData[field] = yesNoToBool(declarationData[field]);
-      }
+      declarationData[field] = yesNoToBool(declarationData[field]);
     });
 
     // ================================
-    // FILE UPLOAD HANDLING (IF ANY)
+    // TEXT FIELDS – SAFE DEFAULTS
+    // ================================
+    declarationData.name = declarationData.name || "";
+    declarationData.signature = declarationData.signature || "";
+    declarationData.specimenSignature1 = declarationData.specimenSignature1 || "";
+    declarationData.specimenSignature2 = declarationData.specimenSignature2 || "";
+    declarationData.date = declarationData.date || null;
+
+    // ================================
+    // FILE UPLOADS (OPTIONAL)
     // ================================
     if (req.files?.specimenSignature1) {
       declarationData.specimenSignature1Url =
         req.files.specimenSignature1[0].path;
     }
-
     if (req.files?.specimenSignature2) {
       declarationData.specimenSignature2Url =
         req.files.specimenSignature2[0].path;
     }
-
     if (req.files?.declarationSignature) {
       declarationData.declarationSignatureUrl =
         req.files.declarationSignature[0].path;
@@ -864,10 +870,7 @@ exports.syncDeclarationDetails = async (req, res) => {
     let temp = await TempDeclaration.findOne({ draftId });
 
     if (!temp) {
-      temp = new TempDeclaration({
-        draftId,
-        ...declarationData,
-      });
+      temp = new TempDeclaration({ draftId, ...declarationData });
     } else {
       Object.assign(temp, declarationData);
     }
@@ -878,14 +881,10 @@ exports.syncDeclarationDetails = async (req, res) => {
     // SYNC TO EMPLOYEE MASTER
     // ================================
     let master = await EmployeeMaster.findOne({ draftId });
-
-    if (!master) {
-      master = new EmployeeMaster({ draftId });
-    }
+    if (!master) master = new EmployeeMaster({ draftId });
 
     master.declarationDetails = temp.toObject();
     master.status = "draft";
-
     await master.save();
 
     return res.status(200).json({
@@ -904,6 +903,7 @@ exports.syncDeclarationDetails = async (req, res) => {
     });
   }
 };
+
 
 
 //Step 6:Offece Information Sync
