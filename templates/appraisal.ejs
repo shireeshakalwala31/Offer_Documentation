@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Appraisal Letter</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 0;
+    }
+
+    body {
+      font-family: 'Calibri', Arial, sans-serif;
+      font-size: 12px;
+      line-height: 1.75;
+      color: #000;
+      margin: 0;
+      padding: 0;
+      background: url("/assets/letterhead.jpeg") no-repeat center top;
+      background-size: cover;
+    }
+
+    .content {
+      position: relative;
+      width: 75%;
+      margin: 0 auto;
+      top: 165px;
+      font-size: 13px;
+      line-height: 1.8;
+    }
+
+    .date {
+      text-align: left;
+      margin-bottom: 16px;
+    }
+
+    .title {
+      text-align: center;
+      font-weight: bold;
+      text-decoration: underline;
+      font-size: 14px;
+      margin-top: 0;
+      margin-bottom: 25px;
+    }
+
+    .gap-after-title {
+      height: 35px;
+    }
+
+    .paragraph {
+      margin: 0 0 9pt 0;
+      text-align: justify;
+    }
+
+    .employee-section {
+      margin-bottom: 20px;
+    }
+
+    .closing {
+      margin-top: 20pt;
+      line-height: 1.3;
+      text-align: left;
+    }
+
+    .signature-block {
+      margin-top: -9pt;
+      text-align: left;
+      line-height: 1.1;
+      margin-left: 5mm;
+      margin-bottom: 0;
+    }
+
+    .signature-block img {
+      width: 85px;
+      height: auto;
+      opacity: 0.95;
+      margin-top: -2pt;
+    }
+
+    .hr-details {
+      margin-top: -9pt;
+      margin-bottom: 25px;
+      line-height: 1.2;
+    }
+
+    .note {
+      font-size: 10pt;
+      margin-top: 10pt;
+      margin-bottom: 30px;
+      position: relative;
+      text-align: left;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="content">
+
+    <p class="date">
+      Date: <%= new Date(issue_date).toLocaleDateString('en-GB').replace(/\//g, '-') %>
+    </p>
+
+    <p class="title">ANNUAL PERFORMANCE APPRAISAL LETTER </p>
+    
+    <div class="gap-after-title"></div>
+
+    <!-- Employee Details -->
+    <div class="employee-section">
+      <p class="paragraph"><strong>Employee Name:</strong> <%= employee_name %></p>
+      <% if (employee_id) { %>
+        <p class="paragraph"><strong>Employee ID:</strong> <%= employee_id %></p>
+      <% } %>
+      <p class="paragraph"><strong>Date of Joining:</strong>
+        <%= new Date(joining_date).toLocaleDateString('en-GB').replace(/\//g, '-') %>
+      </p>
+    </div>
+
+    <!-- Appraisal Content -->
+     <p>Dear <%= employee_name %>,</p>
+    <p class="paragraph"><strong>Congratulations!!</strong></p>
+
+    <p class="paragraph">
+      In recognition of your previous performance, we are glad to inform you that
+      the company has decided to give you an increment and your restructured salary shall be
+      <strong><%= new_salary %>/- (<%= salary_in_words %>)</strong> CTC per annum and you are
+      promoted to <strong><%= promoted_role %></strong>.
+    </p>
+
+    <p class="paragraph">
+      We would like to take this opportunity to express our appreciation
+      of your contribution to the organization and hope that you will continue to
+      strive for better results. We hope you will shoulder your new responsibility
+      with full dedication and sincerity.
+    </p>
+
+    <!-- Closing -->
+    <div class="closing">
+      <p>Yours sincerely,</p>
+      <p><strong>For Amazon IT Solutions</strong></p>
+    </div>
+
+    <% if (signaturePath) { %>
+      <div class="signature-block">
+        <img src="<%= signaturePath %>" alt="Signature" />
+      </div>
+    <% } %>
+
+    <div class="hr-details">
+      <p><%= hrName %></p>
+      <p><strong><%= hrDesignation %></strong></p>
+    </div>
+
+    <p class="note">
+      Note: This is a computer-generated document. No Signature is required*
+    </p>
+
+  </div>
+
+</body>
+</html>
