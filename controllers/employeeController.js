@@ -804,54 +804,95 @@ exports.syncDeclarationDetails = async (req, res) => {
     if (!draftId) {
       return res.status(400).json({
         success: false,
-        message: "draftId is required"
+        message: "draftId is required",
       });
     }
 
-    // Extract fields directly (everything comes from req.body)
-    const declarationData = req.body;
+    // Clone body safely
+    const declarationData = { ...req.body };
 
-    // FILE UPLOADS for signatures if needed
+    // ================================
+    // YES / NO → BOOLEAN NORMALIZATION
+    // ================================
+    const yesNoToBool = (value) => {
+      if (typeof value === "boolean") return value;
+      if (typeof value === "string") {
+        return value.toLowerCase() === "yes";
+      }
+      return false;
+    };
+
+    const booleanFields = [
+      "keepOriginalCertificates",
+      "agreeServiceAgreement",
+      "willingToWorkAnyUnit",
+      "agreeOtherTerms",
+      "doYouSmoke",
+      "areYouAlcoholic",
+      "medicallyFitDeclaration",
+      "convictedInCourt",
+      "membershipProfessionalBody",
+    ];
+
+    booleanFields.forEach((field) => {
+      if (field in declarationData) {
+        declarationData[field] = yesNoToBool(declarationData[field]);
+      }
+    });
+
+    // ================================
+    // FILE UPLOAD HANDLING (IF ANY)
+    // ================================
     if (req.files?.specimenSignature1) {
       declarationData.specimenSignature1Url =
         req.files.specimenSignature1[0].path;
     }
+
     if (req.files?.specimenSignature2) {
       declarationData.specimenSignature2Url =
         req.files.specimenSignature2[0].path;
     }
+
     if (req.files?.declarationSignature) {
       declarationData.declarationSignatureUrl =
         req.files.declarationSignature[0].path;
     }
 
-    // SAVE OR UPDATE TEMP DOCUMENT
+    // ================================
+    // SAVE / UPDATE TEMP DECLARATION
+    // ================================
     let temp = await TempDeclaration.findOne({ draftId });
 
     if (!temp) {
-      temp = new TempDeclaration({ draftId, ...declarationData });
+      temp = new TempDeclaration({
+        draftId,
+        ...declarationData,
+      });
     } else {
       Object.assign(temp, declarationData);
     }
 
     await temp.save();
 
-    // ******** SYNC WITH MASTER DOCUMENT ********
+    // ================================
+    // SYNC TO EMPLOYEE MASTER
+    // ================================
     let master = await EmployeeMaster.findOne({ draftId });
-    if (!master) master = new EmployeeMaster({ draftId });
 
-   master.declarationDetails = temp.toObject();
+    if (!master) {
+      master = new EmployeeMaster({ draftId });
+    }
 
-
+    master.declarationDetails = temp.toObject();
     master.status = "draft";
+
     await master.save();
-    // ********************************************
 
     return res.status(200).json({
       success: true,
-      message: "Declaration details saved & synced",
+      message: "Declaration details saved & synced successfully",
       draftId,
-      data: temp
+      data: temp,
     });
 
   } catch (error) {
@@ -859,10 +900,11 @@ exports.syncDeclarationDetails = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to save declaration details",
-      error: error.message
+      error: error.message,
     });
   }
 };
+
 
 //Step 6:Offece Information Sync
 exports.syncOfficeUseDetails = async (req, res) => {
