@@ -795,7 +795,7 @@ exports.syncFamilyDetails = async (req, res) => {
 };
 
 
-// Step 5: Declaration Sync (FINAL FIXED VERSION)
+// Step 5: Declaration Sync (FINAL – FIXED)
 exports.syncDeclarationDetails = async (req, res) => {
   try {
     const { draftId } = req.body;
@@ -803,48 +803,41 @@ exports.syncDeclarationDetails = async (req, res) => {
       return res.status(400).json({ success: false, message: "draftId is required" });
     }
 
-    const declarationData = { ...req.body };
+    const body = req.body;
 
-    const yesNoToBool = (v) => {
-      if (typeof v === "boolean") return v;
-      if (typeof v === "string") {
-        if (v.toLowerCase() === "yes") return true;
-        if (v.toLowerCase() === "no") return false;
-      }
-      return undefined; // IMPORTANT
+    /* 🔑 FRONTEND → BACKEND FIELD MAPPING */
+    const mappedData = {
+      draftId,
+
+      keepOriginalCertificates: body.keepOriginalCertificates ?? undefined,
+
+      willingServiceAgreement: body.agreeServiceAgreement ?? undefined,
+      willingToWorkAnywhere: body.willingToWorkAnyUnit ?? undefined,
+      agreeCompanyTerms: body.agreeOtherTerms ?? undefined,
+
+      doYouSmoke: body.doYouSmoke ?? undefined,
+      areYouAlcoholic: body.areYouAlcoholic ?? undefined,
+
+      medicallyFit: body.medicallyFitDeclaration ?? undefined,
+      convictedInCourt: body.convictedInCourt ?? undefined,
+
+      haveProfessionalMembership: body.membershipProfessionalBody ?? undefined,
+      membershipDetails: body.professionalBodyName || "",
+
+      name: body.name || "",
+      signature: body.signature || "",
+      date: body.date || null,
     };
 
-    const booleanFields = [
-      "keepOriginalCertificates",
-      "agreeServiceAgreement",
-      "willingToWorkAnyUnit",
-      "agreeOtherTerms",
-      "doYouSmoke",
-      "areYouAlcoholic",
-      "medicallyFitDeclaration",
-      "convictedInCourt",
-      "membershipProfessionalBody",
-    ];
-
-    booleanFields.forEach((f) => {
-      if (f in declarationData) {
-        const val = yesNoToBool(declarationData[f]);
-        if (val !== undefined) declarationData[f] = val;
-        else delete declarationData[f]; // 🚨 avoid null overwrite
-      }
+    /* 🔑 REMOVE undefined (prevents null overwrite) */
+    Object.keys(mappedData).forEach((k) => {
+      if (mappedData[k] === undefined) delete mappedData[k];
     });
-
-    // SAFE TEXT FIELDS
-    ["name", "signature", "specimenSignature1", "specimenSignature2"].forEach(
-      (f) => {
-        if (!declarationData[f]) delete declarationData[f];
-      }
-    );
 
     let temp = await TempDeclaration.findOne({ draftId });
     if (!temp) temp = new TempDeclaration({ draftId });
-    Object.assign(temp, declarationData);
 
+    Object.assign(temp, mappedData);
     await temp.save();
 
     let master = await EmployeeMaster.findOne({ draftId });
@@ -859,13 +852,12 @@ exports.syncDeclarationDetails = async (req, res) => {
       message: "Declaration saved",
       data: temp,
     });
-  } catch (e) {
-    console.error(e);
-    res.status(500).json({ success: false, error: e.message });
+
+  } catch (error) {
+    console.error("Declaration Save Error:", error);
+    res.status(500).json({ success: false, error: error.message });
   }
 };
-
-
 
 
 //Step 6:Offece Information Sync
