@@ -799,27 +799,19 @@ exports.syncFamilyDetails = async (req, res) => {
 exports.syncDeclarationDetails = async (req, res) => {
   try {
     const { draftId } = req.body;
-
     if (!draftId) {
-      return res.status(400).json({
-        success: false,
-        message: "draftId is required",
-      });
+      return res.status(400).json({ success: false, message: "draftId is required" });
     }
 
-    // clone body
     const declarationData = { ...req.body };
 
-    // ================================
-    // YES / NO → BOOLEAN NORMALIZATION
-    // ================================
-    const yesNoToBool = (value, defaultValue = false) => {
-      if (typeof value === "boolean") return value;
-      if (typeof value === "string") {
-        if (value.toLowerCase() === "yes") return true;
-        if (value.toLowerCase() === "no") return false;
+    const yesNoToBool = (v) => {
+      if (typeof v === "boolean") return v;
+      if (typeof v === "string") {
+        if (v.toLowerCase() === "yes") return true;
+        if (v.toLowerCase() === "no") return false;
       }
-      return defaultValue; // handles "", null, undefined
+      return undefined; // IMPORTANT
     };
 
     const booleanFields = [
@@ -834,51 +826,27 @@ exports.syncDeclarationDetails = async (req, res) => {
       "membershipProfessionalBody",
     ];
 
-    booleanFields.forEach((field) => {
-      declarationData[field] = yesNoToBool(declarationData[field]);
+    booleanFields.forEach((f) => {
+      if (f in declarationData) {
+        const val = yesNoToBool(declarationData[f]);
+        if (val !== undefined) declarationData[f] = val;
+        else delete declarationData[f]; // 🚨 avoid null overwrite
+      }
     });
 
-    // ================================
-    // TEXT FIELDS – SAFE DEFAULTS
-    // ================================
-    declarationData.name = declarationData.name || "";
-    declarationData.signature = declarationData.signature || "";
-    declarationData.specimenSignature1 = declarationData.specimenSignature1 || "";
-    declarationData.specimenSignature2 = declarationData.specimenSignature2 || "";
-    declarationData.date = declarationData.date || null;
+    // SAFE TEXT FIELDS
+    ["name", "signature", "specimenSignature1", "specimenSignature2"].forEach(
+      (f) => {
+        if (!declarationData[f]) delete declarationData[f];
+      }
+    );
 
-    // ================================
-    // FILE UPLOADS (OPTIONAL)
-    // ================================
-    if (req.files?.specimenSignature1) {
-      declarationData.specimenSignature1Url =
-        req.files.specimenSignature1[0].path;
-    }
-    if (req.files?.specimenSignature2) {
-      declarationData.specimenSignature2Url =
-        req.files.specimenSignature2[0].path;
-    }
-    if (req.files?.declarationSignature) {
-      declarationData.declarationSignatureUrl =
-        req.files.declarationSignature[0].path;
-    }
-
-    // ================================
-    // SAVE / UPDATE TEMP DECLARATION
-    // ================================
     let temp = await TempDeclaration.findOne({ draftId });
-
-    if (!temp) {
-      temp = new TempDeclaration({ draftId, ...declarationData });
-    } else {
-      Object.assign(temp, declarationData);
-    }
+    if (!temp) temp = new TempDeclaration({ draftId });
+    Object.assign(temp, declarationData);
 
     await temp.save();
 
-    // ================================
-    // SYNC TO EMPLOYEE MASTER
-    // ================================
     let master = await EmployeeMaster.findOne({ draftId });
     if (!master) master = new EmployeeMaster({ draftId });
 
@@ -886,22 +854,17 @@ exports.syncDeclarationDetails = async (req, res) => {
     master.status = "draft";
     await master.save();
 
-    return res.status(200).json({
+    return res.json({
       success: true,
-      message: "Declaration details saved & synced successfully",
-      draftId,
+      message: "Declaration saved",
       data: temp,
     });
-
-  } catch (error) {
-    console.error("Declaration Save Error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to save declaration details",
-      error: error.message,
-    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ success: false, error: e.message });
   }
 };
+
 
 
 
