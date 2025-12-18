@@ -773,7 +773,6 @@ exports.syncFamilyDetails = async (req, res) => {
 
     master.status = "draft";
     await master.save();
-    // **********************************
 
     // Fetch saved family list for response
     const savedFamily = await TempFamily.find({ draftId });
