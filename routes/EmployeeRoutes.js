@@ -15,7 +15,7 @@ const {
   registerEmployee,
   loginEmployee,
   downloadEmployeePDF,
-  viewEmployeeByDraftId // ✅ ADD THIS
+  viewEmployeeByDraftId
 } = require("../controllers/employeeController");
 
 const { verifyToken, adminOnly, employeeOnly } = require("../middleware/authMiddleware");
@@ -27,7 +27,7 @@ router.post("/login", loginEmployee);
 
 // ================= ONBOARDING =================
 
-// STEP 1: Personal Info
+// STEP 1
 router.post(
   "/personalInfo",
   verifyToken,
@@ -36,10 +36,10 @@ router.post(
   syncPersonalInfo
 );
 
-// STEP 2: PF
+// STEP 2
 router.post("/pfInfo", verifyToken, employeeOnly, syncPFInfo);
 
-// STEP 3: Academic
+// STEP 3
 router.post(
   "/academic",
   verifyToken,
@@ -48,13 +48,13 @@ router.post(
   syncAcademicDetails
 );
 
-// STEP 4: Experience
+// STEP 4
 router.post("/experience", verifyToken, employeeOnly, syncExperienceDetails);
 
-// STEP 5: Family
+// STEP 5
 router.post("/family", verifyToken, employeeOnly, syncFamilyDetails);
 
-// STEP 6: Declaration
+// STEP 6
 router.post(
   "/declaration",
   verifyToken,
@@ -69,15 +69,10 @@ router.post(
 
 // ================= OFFICE USE =================
 
-// ADMIN fills office use
-router.post(
-  "/office",
-  verifyToken,
-  adminOnly,
-  syncOfficeUseDetails
-);
+// OLD (keep)
+router.post("/office", verifyToken, adminOnly, syncOfficeUseDetails);
 
-// ADMIN fills office use from view page
+// ✅ NEW (used by View page)
 router.post(
   "/employees/:draftId/office",
   verifyToken,
@@ -93,10 +88,10 @@ router.post("/submit", verifyToken, employeeOnly, mergeOnboarding);
 // Logged-in employee
 router.get("/employee", verifyToken, getEmployeeDetails);
 
-// All employees (ADMIN)
+// All employees
 router.get("/employees", verifyToken, adminOnly, getAllEmployees);
 
-// View one employee by draftId (ADMIN)
+// ✅ View by draftId (SUPPORT BOTH)
 router.get(
   "/employees/:draftId",
   verifyToken,
@@ -104,7 +99,15 @@ router.get(
   viewEmployeeByDraftId
 );
 
-// Download PDF (ADMIN)
+// ✅ Alias route (optional but SAFE)
+router.get(
+  "/employees/view/:draftId",
+  verifyToken,
+  adminOnly,
+  viewEmployeeByDraftId
+);
+
+// Download PDF
 router.get(
   "/employees/:draftId/pdf",
   verifyToken,
