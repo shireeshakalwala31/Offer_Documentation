@@ -1,16 +1,22 @@
+// controllers/employeeController.js
+
 const EmployeeMaster = require("../models/onboarding/EmployeeMaster");
 const TempPersonal = require("../models/onboarding/TempPersonal");
-const TempPF=require("../models/onboarding/TempPF")
-const TempAcademic=require("../models/onboarding/TempAcademic")
+const TempPF = require("../models/onboarding/TempPF");
+const TempAcademic = require("../models/onboarding/TempAcademic");
 const TempExperience = require("../models/onboarding/TempExperience");
 const TempFamily = require("../models/onboarding/TempFamily");
 const TempDeclaration = require("../models/onboarding/TempDeclaration");
 const TempOffice = require("../models/onboarding/TempOffice");
-const { v4: uuidv4 } = require("uuid");
-const { generateToken } = require("../utils/generateToken");
+
 const EmployeeUser = require("../models/onboarding/EmployeeUser");
+
+const { v4: uuidv4 } = require("uuid");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const PDFDocument = require("pdfkit");
+
+
 
 
 exports.registerEmployee = async (req, res) => {
@@ -1031,5 +1037,134 @@ exports.getAllEmployees = async (req, res) => {
       message: "Failed to fetch employees",
       error: error.message
     });
+  }
+};
+exports.viewEmployeeByDraftId = async (req, res) => {
+  try {
+    const { draftId } = req.params;
+
+    const employee = await EmployeeMaster.findOne({ draftId });
+
+    if (!employee) {
+      return res.status(404).json({
+        success: false,
+        message: "Employee not found"
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      data: employee
+    });
+
+  } catch (error) {
+    console.error("View Employee Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch employee",
+      error: error.message
+    });
+  }
+};
+
+
+exports.downloadEmployeePDF = async (req, res) => {
+  try {
+    const { draftId } = req.params;
+
+    const emp = await EmployeeMaster.findOne({ draftId });
+
+    if (!emp) {
+      return res.status(404).json({ message: "Employee not found" });
+    }
+
+    const doc = new PDFDocument({ size: "A4", margin: 40 });
+
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename=${emp.personal.firstName}_Onboarding.pdf`
+    );
+
+    doc.pipe(res);
+
+    // HEADER
+    doc.fontSize(18).text("AMAZON IT SOLUTIONS", { align: "center" });
+    doc.moveDown();
+    doc.fontSize(14).text("Employee Onboarding Details", { align: "center" });
+    doc.moveDown(2);
+
+    // PERSONAL
+    const p = emp.personal || {};
+    doc.fontSize(12).text("Personal Information", { underline: true });
+    doc.fontSize(10);
+    doc.text(`Name: ${p.firstName} ${p.lastName}`);
+    doc.text(`Email: ${p.email}`);
+    doc.text(`Phone: ${p.presentPhone}`);
+    doc.text(`DOB: ${p.dateOfBirth}`);
+    doc.text(`Gender: ${p.gender}`);
+    doc.text(`Address: ${p.presentAddress}`);
+    doc.moveDown();
+
+    // PF
+    const pf = emp.pfDetails || {};
+    doc.fontSize(12).text("PF / Bank Details", { underline: true });
+    doc.fontSize(10);
+    doc.text(`UAN: ${pf.uanNumber || "-"}`);
+    doc.text(`PF No: ${pf.existingPfNumber || "-"}`);
+    doc.text(`Bank Name: ${pf.bankName || "-"}`);
+    doc.text(`IFSC: ${pf.ifscCode || "-"}`);
+    doc.moveDown();
+
+    // ACADEMIC
+    doc.fontSize(12).text("Academic Details", { underline: true });
+    doc.fontSize(10);
+    emp.academicDetails.forEach((a, i) => {
+      doc.text(
+        `${i + 1}. ${a.qualification} (${a.Specialization}) - ${a.schoolOrCollege}, ${a.passYear}`
+      );
+    });
+    doc.moveDown();
+
+    // EXPERIENCE
+    doc.fontSize(12).text("Experience Details", { underline: true });
+    doc.fontSize(10);
+    emp.experienceDetails.forEach((e, i) => {
+      doc.text(
+        `${i + 1}. ${e.employerName} - ${e.designation} (${e.fromDate} to ${e.toDate})`
+      );
+    });
+    doc.moveDown();
+
+    // FAMILY
+    doc.fontSize(12).text("Family Details", { underline: true });
+    doc.fontSize(10);
+    emp.familyDetails.forEach((f, i) => {
+      doc.text(`${i + 1}. ${f.name} - ${f.relation}`);
+    });
+    doc.moveDown();
+
+    // DECLARATION
+    const d = emp.declarationDetails || {};
+    doc.fontSize(12).text("Declaration", { underline: true });
+    doc.fontSize(10);
+    doc.text(`Smoker: ${d.doYouSmoke ? "Yes" : "No"}`);
+    doc.text(`Alcoholic: ${d.areYouAlcoholic ? "Yes" : "No"}`);
+    doc.text(
+      `Professional Membership: ${
+        d.haveProfessionalMembership ? d.membershipDetails : "No"
+      }`
+    );
+
+    doc.moveDown(2);
+    doc.fontSize(9).text("This document is system generated.", {
+      align: "center",
+    });
+
+    doc.end();
+
+  } catch (error) {
+    console.error("PDF Generation Error:", error);
+    res.status(500).json({ message: "PDF generation failed" });
   }
 };

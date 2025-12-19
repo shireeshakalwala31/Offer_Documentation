@@ -13,67 +13,75 @@ const {
   getEmployeeDetails,
   getAllEmployees,
   registerEmployee,
-  loginEmployee
+  loginEmployee,
+  downloadEmployeePDF
 } = require("../controllers/employeeController");
 
-const { verifyToken, adminOnly,employeeOnly } = require("../middleware/authMiddleware");
-const upload = require("../middleware/upload"); // <-- ADD THIS
+const { verifyToken, adminOnly, employeeOnly } = require("../middleware/authMiddleware");
+const upload = require("../middleware/upload");
 
+// AUTH
+router.post("/register", registerEmployee);
+router.post("/login", loginEmployee);
 
-router.post("/register",registerEmployee)
-router.post("/login",loginEmployee)
-// STEP 1: Personal Info (Profile Photo Upload)
+// STEP 1: Personal Info
 router.post(
   "/personalInfo",
-  verifyToken,employeeOnly,
-  upload.single("photo"),  // <-- CRITICAL FIX
+  verifyToken,
+  employeeOnly,
+  upload.single("photo"),
   syncPersonalInfo
 );
 
-// STEP 2: PF Details
-router.post("/pfInfo", verifyToken,employeeOnly, syncPFInfo);
+// STEP 2: PF
+router.post("/pfInfo", verifyToken, employeeOnly, syncPFInfo);
 
-// STEP 3: Academic (multiple attachments)
+// STEP 3: Academic
 router.post(
   "/academic",
-  verifyToken,employeeOnly,
-  upload.array("certificates", 10), // <-- supports multiple certificates
+  verifyToken,
+  employeeOnly,
+  upload.array("certificates", 10),
   syncAcademicDetails
 );
 
 // STEP 4: Experience
-router.post("/experience", verifyToken,employeeOnly, syncExperienceDetails);
+router.post("/experience", verifyToken, employeeOnly, syncExperienceDetails);
 
 // STEP 5: Family
-router.post("/family", verifyToken,employeeOnly, syncFamilyDetails);
+router.post("/family", verifyToken, employeeOnly, syncFamilyDetails);
 
-// STEP 6: Declaration (Signatures)
+// STEP 6: Declaration
 router.post(
   "/declaration",
-  verifyToken,employeeOnly,
+  verifyToken,
+  employeeOnly,
   upload.fields([
     { name: "specimenSignature1", maxCount: 1 },
     { name: "specimenSignature2", maxCount: 1 },
     { name: "declarationSignature", maxCount: 1 },
-  ]), // <-- required for signature uploads
+  ]),
   syncDeclarationDetails
 );
 
-// Office Use (Admin Only)
-router.post(
-  "/office",
-  verifyToken,
-  adminOnly,
-  syncOfficeUseDetails
-);
+// OFFICE USE (ADMIN)
+router.post("/office", verifyToken, adminOnly, syncOfficeUseDetails);
 
-// FINAL SUBMISSION
+// FINAL SUBMIT
 router.post("/submit", verifyToken, employeeOnly, mergeOnboarding);
 
-// Fetch One Employee
+// FETCH LOGGED-IN EMPLOYEE
 router.get("/employee", verifyToken, getEmployeeDetails);
 
-// Fetch All Employees
+// FETCH ALL EMPLOYEES (ADMIN)
 router.get("/employees", verifyToken, adminOnly, getAllEmployees);
+
+// DOWNLOAD EMPLOYEE PDF (ADMIN) ✅ MOVED ABOVE EXPORT
+router.get(
+  "/employees/:draftId/pdf",
+  verifyToken,
+  adminOnly,
+  downloadEmployeePDF
+);
 
 module.exports = router;
