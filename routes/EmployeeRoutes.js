@@ -14,15 +14,18 @@ const {
   getAllEmployees,
   registerEmployee,
   loginEmployee,
-  downloadEmployeePDF
+  downloadEmployeePDF,
+  viewEmployeeByDraftId // ✅ ADD THIS
 } = require("../controllers/employeeController");
 
 const { verifyToken, adminOnly, employeeOnly } = require("../middleware/authMiddleware");
 const upload = require("../middleware/upload");
 
-// AUTH
+// ================= AUTH =================
 router.post("/register", registerEmployee);
 router.post("/login", loginEmployee);
+
+// ================= ONBOARDING =================
 
 // STEP 1: Personal Info
 router.post(
@@ -64,19 +67,44 @@ router.post(
   syncDeclarationDetails
 );
 
-// OFFICE USE (ADMIN)
-router.post("/office", verifyToken, adminOnly, syncOfficeUseDetails);
+// ================= OFFICE USE =================
 
-// FINAL SUBMIT
+// ADMIN fills office use
+router.post(
+  "/office",
+  verifyToken,
+  adminOnly,
+  syncOfficeUseDetails
+);
+
+// ADMIN fills office use from view page
+router.post(
+  "/employees/:draftId/office",
+  verifyToken,
+  adminOnly,
+  syncOfficeUseDetails
+);
+
+// ================= FINAL SUBMIT =================
 router.post("/submit", verifyToken, employeeOnly, mergeOnboarding);
 
-// FETCH LOGGED-IN EMPLOYEE
+// ================= FETCH =================
+
+// Logged-in employee
 router.get("/employee", verifyToken, getEmployeeDetails);
 
-// FETCH ALL EMPLOYEES (ADMIN)
+// All employees (ADMIN)
 router.get("/employees", verifyToken, adminOnly, getAllEmployees);
 
-// DOWNLOAD EMPLOYEE PDF (ADMIN) ✅ MOVED ABOVE EXPORT
+// View one employee by draftId (ADMIN)
+router.get(
+  "/employees/:draftId",
+  verifyToken,
+  adminOnly,
+  viewEmployeeByDraftId
+);
+
+// Download PDF (ADMIN)
 router.get(
   "/employees/:draftId/pdf",
   verifyToken,
