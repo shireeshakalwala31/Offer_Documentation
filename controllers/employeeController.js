@@ -1169,4 +1169,52 @@ exports.downloadEmployeePDF = async (req, res) => {
   }
 };
 
+// ===============================
+// DELETE EMPLOYEE (ADMIN)
+// ===============================
+exports.deleteEmployeeByDraftId = async (req, res) => {
+  try {
+    const { draftId } = req.params;
+
+    if (!draftId) {
+      return res.status(400).json({
+        success: false,
+        message: "draftId is required",
+      });
+    }
+
+    // Delete master record
+    const deleted = await EmployeeMaster.findOneAndDelete({ draftId });
+
+    if (!deleted) {
+      return res.status(404).json({
+        success: false,
+        message: "Employee not found",
+      });
+    }
+
+    // Cleanup temp collections
+    await Promise.all([
+      TempPersonal.deleteMany({ draftId }),
+      TempPF.deleteMany({ draftId }),
+      TempAcademic.deleteMany({ draftId }),
+      TempExperience.deleteMany({ draftId }),
+      TempFamily.deleteMany({ draftId }),
+      TempDeclaration.deleteMany({ draftId }),
+      TempOffice.deleteMany({ draftId }),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      message: "Employee deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete Employee Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete employee",
+      error: error.message,
+    });
+  }
+};
 

@@ -15,10 +15,16 @@ const {
   registerEmployee,
   loginEmployee,
   downloadEmployeePDF,
-  viewEmployeeByDraftId
+  viewEmployeeByDraftId,
+  deleteEmployeeByDraftId, // ✅ ADD
 } = require("../controllers/employeeController");
 
-const { verifyToken, adminOnly, employeeOnly } = require("../middleware/authMiddleware");
+const {
+  verifyToken,
+  adminOnly,
+  employeeOnly,
+} = require("../middleware/authMiddleware");
+
 const upload = require("../middleware/upload");
 
 // ================= AUTH =================
@@ -69,10 +75,10 @@ router.post(
 
 // ================= OFFICE USE =================
 
-// OLD (keep)
+// Admin fills office use
 router.post("/office", verifyToken, adminOnly, syncOfficeUseDetails);
 
-// ✅ NEW (used by View page)
+// Admin fills office use from view/edit page
 router.post(
   "/employees/:draftId/office",
   verifyToken,
@@ -88,10 +94,10 @@ router.post("/submit", verifyToken, employeeOnly, mergeOnboarding);
 // Logged-in employee
 router.get("/employee", verifyToken, getEmployeeDetails);
 
-// All employees
+// All employees (ADMIN)
 router.get("/employees", verifyToken, adminOnly, getAllEmployees);
 
-// ✅ View by draftId (SUPPORT BOTH)
+// View by draftId (ADMIN)
 router.get(
   "/employees/:draftId",
   verifyToken,
@@ -99,20 +105,22 @@ router.get(
   viewEmployeeByDraftId
 );
 
-// ✅ Alias route (optional but SAFE)
-router.get(
-  "/employees/view/:draftId",
-  verifyToken,
-  adminOnly,
-  viewEmployeeByDraftId
-);
-
-// Download PDF
+// Download PDF (ADMIN)
 router.get(
   "/employees/:draftId/pdf",
   verifyToken,
   adminOnly,
   downloadEmployeePDF
+);
+
+// ================= DELETE =================
+
+// ✅ DELETE EMPLOYEE (ADMIN)
+router.delete(
+  "/employees/:draftId",
+  verifyToken,
+  adminOnly,
+  deleteEmployeeByDraftId
 );
 
 module.exports = router;
