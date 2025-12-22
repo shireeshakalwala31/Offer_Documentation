@@ -1218,3 +1218,57 @@ exports.deleteEmployeeByDraftId = async (req, res) => {
   }
 };
 
+exports.syncOfficeUseDetails = async (req, res) => {
+  try {
+    const { draftId } = req.params;   // ✅ FIX HERE
+
+    if (!draftId) {
+      return res.status(400).json({
+        success: false,
+        message: "draftId is required"
+      });
+    }
+
+    console.log("OFFICE BODY:", req.body);
+    console.log("DRAFT ID:", draftId);
+    console.log("USER:", req.user);
+
+    // Save to TempOffice
+    let temp = await TempOffice.findOne({ draftId });
+
+    if (!temp) {
+      temp = new TempOffice({
+        draftId,
+        ...req.body
+      });
+    } else {
+      Object.assign(temp, req.body);
+    }
+
+    await temp.save();
+
+    // Sync to Master
+    let master = await EmployeeMaster.findOne({ draftId });
+    if (!master) master = new EmployeeMaster({ draftId });
+
+    master.officeUseDetails = temp.toObject();
+    master.status = "submitted";
+    master.approvedBy = req.user?.id || null;
+    master.approvedAt = new Date();
+
+    await master.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Office use details saved successfully",
+      data: temp
+    });
+  } catch (error) {
+    console.error("Office Save Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to save office details",
+      error: error.message
+    });
+  }
+};
