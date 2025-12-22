@@ -21,16 +21,17 @@ const officeSchema = new mongoose.Schema(
     salaryCTC: { type: Number, min: 0 },
 
     employmentType: {
-      type: String,
-      enum: [
-        "Permanent",
-        "Probation",
-        "Trainee",
-        "Consultant",
-        "RetainerShip"
-      ]
-    },
-
+  type: String,
+  enum: [
+    "Permanent",
+    "Probation",
+    "Trainee",
+    "Consultant",
+    "Full Time",
+    "Part Time",
+    "Contract"
+  ]
+},
     reportingOfficerId: { type: String, trim: true },
     reportingOfficerName: { type: String, trim: true },
 
