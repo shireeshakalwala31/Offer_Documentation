@@ -4,63 +4,64 @@ const officeSchema = new mongoose.Schema(
   {
     draftId: { type: String, required: true, index: true },
 
-    officeCompanyName: { type: String, trim: true },
-    employeeName: { type: String, trim: true, uppercase: true },
-    employeeId: { type: String, trim: true, uppercase: true },
-
+    /* ===== BASIC INFO ===== */
+    companyName: { type: String, trim: true },
     location: { type: String, trim: true },
-    joiningDate: { type: Date },
 
-    previousExperience: { type: Number, min: 0 },
+    employeeId: { type: String, trim: true },
+    employeeName: { type: String, trim: true },
+
+    dateOfJoining: { type: Date },
+    previousExperience: { type: String },
+
     department: { type: String, trim: true },
     designation: { type: String, trim: true },
     qualification: { type: String, trim: true },
-    grade: { type: String, trim: true },
+    gradeLevel: { type: String, trim: true },
 
-    salaryGrossPM: { type: Number, min: 0 },
-    salaryCTC: { type: Number, min: 0 },
-
+    /* ===== EMPLOYMENT TYPE ===== */
     employmentType: {
-  type: String,
-  enum: [
-    "Permanent",
-    "Probation",
-    "Trainee",
-    "Consultant",
-    "Full Time",
-    "Part Time",
-    "Contract"
-  ]
-},
-    reportingOfficerId: { type: String, trim: true },
-    reportingOfficerName: { type: String, trim: true },
-
-    bond: { type: Boolean, default: null },
-    surety: { type: Boolean, default: null },
-    originalCertificates: { type: Boolean, default: null },
-
-    bondExemption: { type: Boolean, default: null },
-    certificateExemption: { type: Boolean, default: null },
-
-    recruitmentSource: {
       type: String,
-      enum: [
-        "Direct Placement",
-        "Campus",
-        "Referral",
-        "Any Consultancy"
-      ]
+      enum: ["Permanent", "Probation", "Trainee", "Consultant", "Retainer"],
     },
 
+    /* ===== SALARY ===== */
+    grossPM: { type: Number },
+    ctc: { type: Number },
+
+    /* ===== REPORTING ===== */
+    reportingOfficerId: { type: String },
+    reportingOfficerName: { type: String },
+
+    /* ===== SERVICE AGREEMENT ===== */
+    bond: { type: Boolean, default: null },
+    bondExemption: { type: Boolean, default: null },
+
+    surety: { type: Boolean, default: null },
+    suretyExemption: { type: Boolean, default: null },
+
+    originalCertificates: { type: Boolean, default: null },
+    certificateExemption: { type: Boolean, default: null },
+
+    /* ===== SOURCE ===== */
+    sourceOfRecruitment: {
+      type: String,
+      enum: ["Direct Placement", "Campus", "Referral", "Any Consultancy"],
+    },
+
+    /* ===== ASSETS ===== */
+    assetTelRes: { type: Boolean, default: false },
     assetMobile: { type: Boolean, default: false },
     assetVehicle: { type: Boolean, default: false },
+    assetFurniture: { type: Boolean, default: false },
     assetLaptop: { type: Boolean, default: false },
     assetDesktop: { type: Boolean, default: false },
-    assetFurniture: { type: Boolean, default: false },
 
-    adminRemarks: { type: String, trim: true },
-    hrSignatureUrl: { type: String, trim: true },
-    adminFilledDate: { type: Date }
+    /* ===== FOOTER ===== */
+    adminFilledDate: { type: Date },
+    authorisedSignatory: { type: String },
+
+    adminRemarks: { type: String },
   },
   { timestamps: true }
 );
