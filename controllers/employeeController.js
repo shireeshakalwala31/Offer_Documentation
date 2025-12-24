@@ -1264,7 +1264,9 @@ exports.syncOfficeUseDetails = async (req, res) => {
       originalCertificates: req.body.originalCertificates ?? null,
       certificateExemption: req.body.certificateExemption ?? null,
 
-      sourceOfRecruitment: req.body.sourceOfRecruitment || "",
+      sourceOfRecruitment:
+  req.body.sourceOfRecruitment?.trim() || null,
+
 
       assetTelRes: !!req.body.assetTelRes,
       assetMobile: !!req.body.assetMobile,

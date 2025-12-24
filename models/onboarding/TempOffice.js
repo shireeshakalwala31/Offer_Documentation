@@ -45,9 +45,11 @@ const officeSchema = new mongoose.Schema(
 
     /* ===== SOURCE ===== */
     sourceOfRecruitment: {
-      type: String,
-      enum: ["Direct Placement", "Campus", "Referral", "Any Consultancy"],
-    },
+  type: String,
+  enum: ["Direct Placement", "Campus", "Referral", "Any Consultancy"],
+  default: null,
+},
+
 
     /* ===== ASSETS ===== */
     assetTelRes: { type: Boolean, default: false },
