@@ -1223,13 +1223,9 @@ exports.syncOfficeUseDetails = async (req, res) => {
     const { draftId } = req.params;
 
     if (!draftId) {
-      return res.status(400).json({
-        success: false,
-        message: "draftId is required",
-      });
+      return res.status(400).json({ message: "draftId required" });
     }
 
-    /* ===== MAP FRONTEND → DB ===== */
     const payload = {
       draftId,
 
@@ -1240,33 +1236,22 @@ exports.syncOfficeUseDetails = async (req, res) => {
       employeeName: req.body.employeeName || "",
 
       dateOfJoining: req.body.dateOfJoining || null,
-      previousExperience: req.body.previousExp || "",
+      previousExperience: req.body.previousExperience || "",
 
       department: req.body.department || "",
       designation: req.body.designation || "",
       qualification: req.body.qualification || "",
-      gradeLevel: req.body.grade || "",
+      gradeLevel: req.body.gradeLevel || "",
 
-      employmentType: req.body.employmentType || "",
+      employmentType: req.body.employmentType || null,
 
-      grossPM: req.body.grossPM || 0,
-      ctc: req.body.ctc || 0,
+      grossPM: Number(req.body.grossPM) || 0,
+      ctc: Number(req.body.ctc) || 0,
 
       reportingOfficerId: req.body.reportingOfficerId || "",
       reportingOfficerName: req.body.reportingOfficerName || "",
 
-      bond: req.body.bond ?? null,
-      bondExemption: req.body.bondExemption ?? null,
-
-      surety: req.body.surety ?? null,
-      suretyExemption: req.body.suretyExemption ?? null,
-
-      originalCertificates: req.body.originalCertificates ?? null,
-      certificateExemption: req.body.certificateExemption ?? null,
-
-      sourceOfRecruitment:
-  req.body.sourceOfRecruitment?.trim() || null,
-
+      sourceOfRecruitment: req.body.sourceOfRecruitment || null,
 
       assetTelRes: !!req.body.assetTelRes,
       assetMobile: !!req.body.assetMobile,
@@ -1275,23 +1260,17 @@ exports.syncOfficeUseDetails = async (req, res) => {
       assetLaptop: !!req.body.assetLaptop,
       assetDesktop: !!req.body.assetDesktop,
 
-      adminFilledDate: req.body.approvalDate || new Date(),
+      adminFilledDate: req.body.adminFilledDate || new Date(),
       authorisedSignatory: req.body.authorisedSignatory || "",
-
-      adminRemarks: req.body.remarks || "",
+      adminRemarks: req.body.adminRemarks || "",
     };
 
-    /* ===== UPSERT ===== */
     let temp = await TempOffice.findOne({ draftId });
-    if (!temp) {
-      temp = new TempOffice(payload);
-    } else {
-      Object.assign(temp, payload);
-    }
+    if (!temp) temp = new TempOffice(payload);
+    else Object.assign(temp, payload);
 
     await temp.save();
 
-    /* ===== SYNC MASTER ===== */
     let master = await EmployeeMaster.findOne({ draftId });
     if (!master) master = new EmployeeMaster({ draftId });
 
@@ -1301,17 +1280,9 @@ exports.syncOfficeUseDetails = async (req, res) => {
 
     await master.save();
 
-    return res.json({
-      success: true,
-      message: "Office use details saved successfully",
-      data: temp,
-    });
-  } catch (error) {
-    console.error("Office Save Error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to save office details",
-      error: error.message,
-    });
+    return res.json({ success: true, data: temp });
+  } catch (err) {
+    console.error("Office Save Error:", err);
+    res.status(500).json({ message: err.message });
   }
 };

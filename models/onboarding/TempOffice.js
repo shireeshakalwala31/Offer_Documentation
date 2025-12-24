@@ -1,39 +1,36 @@
+// models/onboarding/TempOffice.js
 const mongoose = require("mongoose");
 
 const officeSchema = new mongoose.Schema(
   {
     draftId: { type: String, required: true, index: true },
 
-    /* ===== BASIC INFO ===== */
-    companyName: { type: String, trim: true },
-    location: { type: String, trim: true },
+    companyName: String,
+    location: String,
 
-    employeeId: { type: String, trim: true },
-    employeeName: { type: String, trim: true },
+    employeeId: String,
+    employeeName: String,
 
-    dateOfJoining: { type: Date },
-    previousExperience: { type: String },
+    dateOfJoining: Date,
+    previousExperience: String,
 
-    department: { type: String, trim: true },
-    designation: { type: String, trim: true },
-    qualification: { type: String, trim: true },
-    gradeLevel: { type: String, trim: true },
+    department: String,
+    designation: String,
+    qualification: String,
+    gradeLevel: String,
 
-    /* ===== EMPLOYMENT TYPE ===== */
     employmentType: {
       type: String,
       enum: ["Permanent", "Probation", "Trainee", "Consultant", "Retainer"],
+      default: null,
     },
 
-    /* ===== SALARY ===== */
-    grossPM: { type: Number },
-    ctc: { type: Number },
+    grossPM: Number,
+    ctc: Number,
 
-    /* ===== REPORTING ===== */
-    reportingOfficerId: { type: String },
-    reportingOfficerName: { type: String },
+    reportingOfficerId: String,
+    reportingOfficerName: String,
 
-    /* ===== SERVICE AGREEMENT ===== */
     bond: { type: Boolean, default: null },
     bondExemption: { type: Boolean, default: null },
 
@@ -43,15 +40,12 @@ const officeSchema = new mongoose.Schema(
     originalCertificates: { type: Boolean, default: null },
     certificateExemption: { type: Boolean, default: null },
 
-    /* ===== SOURCE ===== */
     sourceOfRecruitment: {
-  type: String,
-  enum: ["Direct Placement", "Campus", "Referral", "Any Consultancy"],
-  default: null,
-},
+      type: String,
+      enum: ["Direct Placement", "Campus", "Referral", "Any Consultancy"],
+      default: null,
+    },
 
-
-    /* ===== ASSETS ===== */
     assetTelRes: { type: Boolean, default: false },
     assetMobile: { type: Boolean, default: false },
     assetVehicle: { type: Boolean, default: false },
@@ -59,11 +53,9 @@ const officeSchema = new mongoose.Schema(
     assetLaptop: { type: Boolean, default: false },
     assetDesktop: { type: Boolean, default: false },
 
-    /* ===== FOOTER ===== */
-    adminFilledDate: { type: Date },
-    authorisedSignatory: { type: String },
-
-    adminRemarks: { type: String },
+    adminFilledDate: Date,
+    authorisedSignatory: String,
+    adminRemarks: String,
   },
   { timestamps: true }
 );
