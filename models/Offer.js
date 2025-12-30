@@ -27,36 +27,35 @@ const OfferLetterSchema = new mongoose.Schema(
   {
     candidateName: {
       type: String,
-      required: [true, "Candidate name is required"],
+      required: function() { return this.status !== "draft"; },
       trim: true,
     },
     candidateAddress: {
       type: String,
-      required: [true, "Candidate address is required"],
+      required: function() { return this.status !== "draft"; },
       trim: true,
     },
     position: {
       type: String,
-      required: [true, "Position is required"],
+      required: function() { return this.status !== "draft"; },
       trim: true,
     },
     joiningDate: {
       type: Date,
-      required: [true, "Joining date is required"],
+      required: function() { return this.status !== "draft"; },
     },
     joiningTime: {
       type: String,
-      required:[true,"Joining time is required"],
       default: "10:30 AM",
     },
     ctcAmount: {
       type: Number,
-      required: [true, "CTC amount is required"],
+      required: function() { return this.status !== "draft"; },
       min: [0, "CTC cannot be negative"],
     },
     ctcInWords: {
       type: String,
-      required: [true, "CTC in words is required"],
+      required: function() { return this.status !== "draft"; },
       trim: true,
     },
 

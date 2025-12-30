@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const multer=require("multer")
 const { registerAdmin, loginAdmin,forgotPassword,resetPasswordWithOtp } = require("../controllers/authController");
-const {createOfferLetter,getAllOffers,getOfferById,updateOfferLetter,generatePDF,deleteOfferLetter,downloadOfferLetter,sendOfferLetterEmail}=require('../controllers/offerController');
+const {createOfferLetter,getAllOffers,getOfferById,updateOfferLetter,generatePDF,deleteOfferLetter,downloadOfferLetter,sendOfferLetterEmail,getDraftOffers}=require('../controllers/offerController');
 
 const{verifyToken,adminOnly}=require('../middleware/authMiddleware');
 
@@ -18,6 +18,7 @@ router.post("/reset-password", resetPasswordWithOtp);
 router.post("/create",verifyToken,adminOnly,createOfferLetter);
 router.post('/generate-pdf',verifyToken,adminOnly,generatePDF)
 router.get("/all",verifyToken,adminOnly,getAllOffers)
+router.get("/drafts",verifyToken,adminOnly,getDraftOffers)
 router.get('/:id',verifyToken,adminOnly,getOfferById);
 router.put('/:id',verifyToken,adminOnly,updateOfferLetter)
 router.delete('/:id',verifyToken,adminOnly,deleteOfferLetter);

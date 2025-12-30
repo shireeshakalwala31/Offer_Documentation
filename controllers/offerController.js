@@ -103,9 +103,13 @@ exports.createOfferLetter = async (req, res) => {
       ctcAmount,
       ctcInWords,
       probationPeriodMonths,
+      status,
     } = req.body;
 
-    if (!candidateName || !candidateAddress || !position || !joiningDate || !ctcAmount || !ctcInWords) {
+    const isDraft = status === "draft";
+
+    // For drafts, allow partial data
+    if (!isDraft && (!candidateName || !candidateAddress || !position || !joiningDate || !ctcAmount || !ctcInWords)) {
       return res.status(400).json({
         success: false,
         message: Messages.OFFER.MISSING_FIELDS_ERROR,
@@ -114,30 +118,50 @@ exports.createOfferLetter = async (req, res) => {
 
     const createdBy = req.admin._id;
 
-    const totalCTC = Number(ctcAmount);
-    if (isNaN(totalCTC) || totalCTC <= 0) {
-      return res.status(400).json({
-        success: false,
-        message: Messages.OFFER.INVALID_CTC
-      });
+    let salaryBreakdown = [];
+    let pdfPath = null;
+
+    if (ctcAmount) {
+      const totalCTC = Number(ctcAmount);
+      if (isNaN(totalCTC) || totalCTC <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: Messages.OFFER.INVALID_CTC
+        });
+      }
+
+      salaryBreakdown = generateSalaryBreakdown(totalCTC);
+
+      // Generate PDF only if not draft or if all required fields are present
+      if (!isDraft || (candidateName && candidateAddress && position && joiningDate && ctcInWords)) {
+        pdfPath = await generateOfferPDF({
+          candidateName: candidateName || '',
+          candidateAddress: candidateAddress || '',
+          position: position || '',
+          joiningDate,
+          joiningTime: joiningTime || "10:30 AM",
+          ctcAmount: Math.round(totalCTC),
+          ctcInWords: ctcInWords || '',
+          salaryBreakdown,
+          probationPeriodMonths: probationPeriodMonths || 6,
+        });
+      }
     }
 
-    const salaryBreakdown = generateSalaryBreakdown(totalCTC);
-
     const offerData = {
-      candidateName: candidateName.trim(),
-      candidateAddress: candidateAddress.trim(),
-      position: position.trim(),
-      joiningDate,
-      joiningTime: joiningTime || "10:30 AM",
-      ctcAmount: Math.round(totalCTC),
-      ctcInWords: ctcInWords.trim(),
-      salaryBreakdown,
-      probationPeriodMonths: probationPeriodMonths || 6,
+      status: status || "draft",
       createdBy,
     };
 
-    const pdfPath = await generateOfferPDF(offerData);
+    if (candidateName) offerData.candidateName = candidateName.trim();
+    if (candidateAddress) offerData.candidateAddress = candidateAddress.trim();
+    if (position) offerData.position = position.trim();
+    if (joiningDate) offerData.joiningDate = joiningDate;
+    if (joiningTime) offerData.joiningTime = joiningTime;
+    if (ctcAmount) offerData.ctcAmount = Math.round(Number(ctcAmount));
+    if (ctcInWords) offerData.ctcInWords = ctcInWords.trim();
+    if (probationPeriodMonths) offerData.probationPeriodMonths = probationPeriodMonths;
+    if (salaryBreakdown.length > 0) offerData.salaryBreakdown = salaryBreakdown;
 
     const offerLetter = new OfferLetter({
       ...offerData,
@@ -317,6 +341,31 @@ exports.getAllOffers = async (req, res) => {
     }
 };
 
+//
+// ======================== GET DRAFT OFFERS ========================
+//
+exports.getDraftOffers = async (req, res) => {
+    try {
+        const offers = await OfferLetter.find({ status: "draft" }).sort({ createdAt: -1 });
+
+        const totalCount = await OfferLetter.countDocuments({ status: "draft" });
+
+        res.status(200).json({
+            success: true,
+            message: offers.length === 0 
+                ? "No draft offer letters found" 
+                : "Draft offers retrieved successfully",
+            count: offers.length,
+            totalCount,
+            data: offers,
+        });
+
+    } catch (error) {
+        logger.error("Error fetching draft offers:", error);
+        res.status(500).json({ message: Messages.ERROR.SERVER });
+    }
+};
+
 
 //
 // ======================== GET OFFER BY ID ========================
@@ -360,6 +409,12 @@ exports.downloadOfferLetter = async (req, res) => {
     if (!pdfPath || !fs.existsSync(pdfPath)) {
       pdfPath = await generateOfferPDF(offer);
       offer.pdfPath = pdfPath;
+      await offer.save();
+    }
+
+    // If the offer was a draft, mark it as sent after download
+    if (offer.status === "draft") {
+      offer.status = "sent";
       await offer.save();
     }
 
