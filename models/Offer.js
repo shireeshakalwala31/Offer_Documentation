@@ -90,6 +90,11 @@ const OfferLetterSchema = new mongoose.Schema(
      type: String,
      default: null,
     },
+    formData: {
+  type: Object,
+  default: null
+},
+
 
 
     // ✅ Linked Admin (Creator)

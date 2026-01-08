@@ -90,9 +90,31 @@ exports.createOfferLetter = async (req, res) => {
     if (!req.admin || !req.admin._id) {
       return res.status(401).json({
         success: false,
-        message: "Unauthorized: Admin credentials missing.",
+        message: "Unauthorized: Admin credentials missing",
       });
     }
+
+    const { status, formData } = req.body;
+    const isDraft = status === "draft";
+
+    // ✅ DRAFT: save raw form exactly as sent
+    if (isDraft) {
+      const draft = new OfferLetter({
+        status: "draft",
+        formData,                 // 🔥 RAW FORM
+        createdBy: req.admin._id,
+      });
+
+      await draft.save();
+
+      return res.status(201).json({
+        success: true,
+        message: "Draft saved successfully",
+        data: draft,
+      });
+    }
+
+    // ================= FINAL OFFER =================
 
     const {
       candidateName,
@@ -103,90 +125,68 @@ exports.createOfferLetter = async (req, res) => {
       ctcAmount,
       ctcInWords,
       probationPeriodMonths,
-      status,
     } = req.body;
 
-    const isDraft = status === "draft";
-
-    // For drafts, allow partial data
-    if (!isDraft && (!candidateName || !candidateAddress || !position || !joiningDate || !ctcAmount || !ctcInWords)) {
+    // ✅ STRICT VALIDATION (FINAL ONLY)
+    if (
+      !candidateName ||
+      !candidateAddress ||
+      !position ||
+      !joiningDate ||
+      !ctcAmount ||
+      !ctcInWords
+    ) {
       return res.status(400).json({
         success: false,
         message: Messages.OFFER.MISSING_FIELDS_ERROR,
       });
     }
 
-    const createdBy = req.admin._id;
+    const salaryBreakdown = generateSalaryBreakdown(ctcAmount);
 
-    let salaryBreakdown = [];
-    let pdfPath = null;
-
-    if (ctcAmount) {
-      const totalCTC = Number(ctcAmount);
-      if (isNaN(totalCTC) || totalCTC <= 0) {
-        return res.status(400).json({
-          success: false,
-          message: Messages.OFFER.INVALID_CTC
-        });
-      }
-
-      salaryBreakdown = generateSalaryBreakdown(totalCTC);
-
-      // Generate PDF only if not draft or if all required fields are present
-      if (!isDraft || (candidateName && candidateAddress && position && joiningDate && ctcInWords)) {
-        pdfPath = await generateOfferPDF({
-          candidateName: candidateName || '',
-          candidateAddress: candidateAddress || '',
-          position: position || '',
-          joiningDate,
-          joiningTime: joiningTime || "10:30 AM",
-          ctcAmount: Math.round(totalCTC),
-          ctcInWords: ctcInWords || '',
-          salaryBreakdown,
-          probationPeriodMonths: probationPeriodMonths || 6,
-        });
-      }
-    }
-
-    const offerData = {
-      status: status || "draft",
-      createdBy,
-    };
-
-    if (candidateName) offerData.candidateName = candidateName.trim();
-    if (candidateAddress) offerData.candidateAddress = candidateAddress.trim();
-    if (position) offerData.position = position.trim();
-    if (joiningDate) offerData.joiningDate = joiningDate;
-    if (joiningTime) offerData.joiningTime = joiningTime;
-    if (ctcAmount) offerData.ctcAmount = Math.round(Number(ctcAmount));
-    if (ctcInWords) offerData.ctcInWords = ctcInWords.trim();
-    if (probationPeriodMonths) offerData.probationPeriodMonths = probationPeriodMonths;
-    if (salaryBreakdown.length > 0) offerData.salaryBreakdown = salaryBreakdown;
-
-    const offerLetter = new OfferLetter({
-      ...offerData,
-      pdfPath,
+    const pdfPath = await generateOfferPDF({
+      candidateName,
+      candidateAddress,
+      position,
+      joiningDate,
+      joiningTime: joiningTime || "10:30 AM",
+      ctcAmount,
+      ctcInWords,
+      salaryBreakdown,
+      probationPeriodMonths: probationPeriodMonths || 6,
     });
 
-    await offerLetter.save();
+    const offer = new OfferLetter({
+      candidateName,
+      candidateAddress,
+      position,
+      joiningDate,
+      joiningTime,
+      ctcAmount,
+      ctcInWords,
+      salaryBreakdown,
+      probationPeriodMonths,
+      status: "sent",
+      pdfPath,
+      createdBy: req.admin._id,
+    });
+
+    await offer.save();
 
     res.status(201).json({
       success: true,
       message: Messages.OFFER.CREATE_SUCCESS,
-      data: offerLetter,
-      pdfFile: offerLetter.pdfPath,
+      data: offer,
     });
-
   } catch (error) {
-    console.error("Error creating offer letter:", error);
+    logger.error("Create Offer Error:", error);
     res.status(500).json({
       success: false,
       message: Messages.ERROR.SERVER,
-      error: error.message,
-      stack: error.stack,
     });
   }
 };
+
 
 
 
@@ -401,8 +401,19 @@ exports.getOfferById = async (req, res) => {
 exports.downloadOfferLetter = async (req, res) => {
   try {
     const offer = await OfferLetter.findById(req.params.id);
-    if (!offer)
-      return res.status(404).json({ message: Messages.OFFER.OFFER_NOT_FOUND });
+
+    if (!offer) {
+      return res.status(404).json({
+        message: Messages.OFFER.OFFER_NOT_FOUND,
+      });
+    }
+
+    // ❌ BLOCK HALF-FILLED DRAFTS
+    if (offer.status === "draft") {
+      return res.status(400).json({
+        message: "Please complete all details before downloading the offer letter",
+      });
+    }
 
     let pdfPath = offer.pdfPath;
 
@@ -412,27 +423,16 @@ exports.downloadOfferLetter = async (req, res) => {
       await offer.save();
     }
 
-    // If the offer was a draft, mark it as sent after download
-    if (offer.status === "draft") {
-      offer.status = "sent";
-      await offer.save();
-    }
-
     return res.download(
       pdfPath,
-      `OfferLetter_${offer.candidateName}.pdf`,
-      (err) => {
-        if (err)
-          return res
-            .status(500)
-            .json({ message:Messages.OFFER.DOWNLOAD_ERROR });
-      }
+      `OfferLetter_${offer.candidateName}.pdf`
     );
   } catch (error) {
     logger.error("Download error:", error);
     res.status(500).json({ message: Messages.ERROR.SERVER });
   }
 };
+
 
 //send-email
 exports.sendOfferLetterEmail=async(req,res)=>{
