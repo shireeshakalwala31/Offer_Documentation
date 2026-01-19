@@ -210,7 +210,7 @@
           let currentLine = '';
 
           for (let word of words) {
-            if (currentLine.length + word.length + (currentLine ? 1 : 0) <= 50) {
+            if (currentLine.length + word.length + (currentLine ? 1 : 0) <= 25) {
               currentLine += (currentLine ? ' ' : '') + word;
             } else {
               if (currentLine) lines.push(currentLine);

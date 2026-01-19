@@ -203,13 +203,18 @@ exports.getAppraisalLetterById=async(req,res)=>{
 exports.getAllAppraisalLetters = async (req, res) => {
   try {
     const appraisalLetters = await Appraisal.find()
-      .select("employeeName employeeId")  // Return only required fields
+      .select("employeeName employeeId promotedRole")  // Include designation (promotedRole)
       .sort({ createdAt: -1 });
 
     res.status(200).json({
       message: "Apprasial Letters Fecthed Successfully",
       count: appraisalLetters.length,
-      data: appraisalLetters
+      data: appraisalLetters.map(doc => ({
+        _id: doc._id,
+        employeeName: doc.employeeName,
+        employeeId: doc.employeeId,
+        designation: doc.promotedRole
+      }))
     });
 
   } catch (error) {

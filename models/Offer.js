@@ -29,6 +29,7 @@ const OfferLetterSchema = new mongoose.Schema(
       type: String,
       required: function() { return this.status !== "draft"; },
       trim: true,
+      maxlength: 50,
     },
     candidateAddress: {
       type: String,
