@@ -241,8 +241,19 @@
         </div>
       </div>
 
-      <p><strong>Name: <%= candidateName %>.</strong></p>
-      <p>Dear <%= candidateName %>.</p>
+      <% 
+        // Format name per requirement:
+        // - Full name is shown in the address block as-is (e.g., "Thota Bharath Mani Kumar").
+        // - Name line should show only given names (drop leading surname), e.g., "Bharath Mani Kumar".
+        // - Dear line should be given names + "." + first initial of leading surname, e.g., "Bharath Mani Kumar.T".
+        const __fullName = (candidateName || '').trim();
+        const __tokens = __fullName.split(/\s+/).filter(Boolean);
+        const __first = __tokens[0] || '';
+        const __base = __tokens.length > 1 ? __tokens.slice(1).join(' ') : __fullName;
+        const __dear = __base + (__first ? ('.' + __first.charAt(0).toUpperCase()) : '');
+      %>
+      <p><strong>Name: <%= __base %>.</strong></p>
+      <p>Dear <%= __dear %>.</p>
       <p>
         We are pleased to offer you the position as a <strong><%= position %></strong> with
         <%= companyName %>. You will be required to report for work on 
