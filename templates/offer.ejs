@@ -210,7 +210,7 @@
           let currentLine = '';
 
           for (let word of words) {
-            if (currentLine.length + word.length + (currentLine ? 1 : 0) <= 25) {
+            if (currentLine.length + word.length + (currentLine ? 1 : 0) <= 50) {
               currentLine += (currentLine ? ' ' : '') + word;
             } else {
               if (currentLine) lines.push(currentLine);
@@ -253,7 +253,7 @@
         const __dear = __base + (__first ? ('.' + __first.charAt(0).toUpperCase()) : '');
       %>
       <p><strong>Name: <%= __base %>.</strong></p>
-      <p>Dear <%= __dear %>.</p>
+      <p>Dear <%= __dear %></p>
       <p>
         We are pleased to offer you the position as a <strong><%= position %></strong> with
         <%= companyName %>. You will be required to report for work on 
