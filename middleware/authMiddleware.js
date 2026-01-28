@@ -16,20 +16,18 @@ exports.verifyToken = async (req, res, next) => {
 
     if (decoded.role === "admin") {
       user = await HrAdmin.findById(decoded.id).select("-password");
-      req.admin = user;    // REQUIRED FIX
-    } 
-    else if (decoded.role === "employee") {
-  user = await EmployeeUser.findById(decoded.id).select("-password");
-  req.employee = user;  // add this line
-}
-
+      req.admin = user;
+    } else if (decoded.role === "employee") {
+      user = await EmployeeUser.findById(decoded.id).select("-password");
+      req.employee = user;
+    }
 
     if (!user) {
       return res.status(401).json({ message: "Unauthorized user" });
     }
 
     req.user = user;
-req.role = decoded.role;
+    req.role = decoded.role;
 
     next();
 
@@ -37,9 +35,6 @@ req.role = decoded.role;
     return res.status(401).json({ message: "Invalid or expired token" });
   }
 };
-
-
-
 
 // Admin Only
 exports.adminOnly = (req, res, next) => {
