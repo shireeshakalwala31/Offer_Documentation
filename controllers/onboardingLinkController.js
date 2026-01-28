@@ -15,12 +15,19 @@ const { sendEmail } = require("../services/emailService");
 // ============================================
 exports.generateOnboardingLink = async (req, res) => {
   try {
-    const { email, candidateName } = req.body;
+    const { email, firstName, lastName } = req.body;
 
     if (!email) {
       return res.status(400).json({
         success: false,
         message: "Email is required"
+      });
+    }
+
+    if (!firstName || !lastName) {
+      return res.status(400).json({
+        success: false,
+        message: "First name and last name are required"
       });
     }
 
@@ -37,7 +44,9 @@ exports.generateOnboardingLink = async (req, res) => {
         message: "Active onboarding link already exists for this email",
         token: existingLink.token,
         url: onboardingUrl,
-        email: existingLink.email
+        email: existingLink.email,
+        firstName: existingLink.firstName,
+        lastName: existingLink.lastName
       });
     }
 
@@ -47,6 +56,8 @@ exports.generateOnboardingLink = async (req, res) => {
     // Create new link
     const newLink = await OnboardingLink.create({
       email,
+      firstName,
+      lastName,
       token,
       isExpired: false,
       generatedBy: req.admin?._id || null,
@@ -61,6 +72,8 @@ exports.generateOnboardingLink = async (req, res) => {
       token,
       draftId,
       email,
+      firstName,
+      lastName,
       currentSection: "personal"
     });
 
@@ -82,7 +95,7 @@ exports.generateOnboardingLink = async (req, res) => {
         html: `
           <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
             <h2 style="color: #333;">Welcome to Our Organization!</h2>
-            <p>Dear ${candidateName || "Candidate"},</p>
+            <p>Dear ${firstName} ${lastName},</p>
             <p>Congratulations! We are excited to have you join our team.</p>
             <p>Please complete your onboarding process by clicking the link below:</p>
             <div style="margin: 30px 0;">
@@ -115,6 +128,8 @@ exports.generateOnboardingLink = async (req, res) => {
       token,
       url: onboardingUrl,
       email,
+      firstName,
+      lastName,
       draftId
     });
 

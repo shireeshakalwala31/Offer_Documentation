@@ -10,6 +10,18 @@ const onboardingLinkSchema = new mongoose.Schema(
       match: [/^\S+@\S+\.\S+$/, "Invalid email format"]
     },
 
+    firstName: {
+      type: String,
+      required: true,
+      trim: true
+    },
+
+    lastName: {
+      type: String,
+      required: true,
+      trim: true
+    },
+
     token: {
       type: String,
       required: true,

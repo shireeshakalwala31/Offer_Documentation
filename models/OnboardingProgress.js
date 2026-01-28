@@ -20,6 +20,18 @@ const onboardingProgressSchema = new mongoose.Schema(
       required: true
     },
 
+    firstName: {
+      type: String,
+      required: true,
+      trim: true
+    },
+
+    lastName: {
+      type: String,
+      required: true,
+      trim: true
+    },
+
     // Section completion tracking
     personal: {
       completed: { type: Boolean, default: false },
