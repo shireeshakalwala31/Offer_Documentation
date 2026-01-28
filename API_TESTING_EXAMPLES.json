@@ -1,0 +1,378 @@
+{
+  "info": {
+    "name": "Onboarding Link System API",
+    "description": "Complete API collection for testing onboarding link system",
+    "version": "1.0.0"
+  },
+  "endpoints": [
+    {
+      "name": "1. Generate Onboarding Link (Admin)",
+      "method": "POST",
+      "url": "http://localhost:5000/api/onboarding-link/generate",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer YOUR_ADMIN_TOKEN_HERE"
+      },
+      "body": {
+        "email": "candidate@example.com",
+        "candidateName": "John Doe"
+      },
+      "expectedResponse": {
+        "success": true,
+        "message": "Onboarding link generated successfully",
+        "token": "generated_token_here",
+        "url": "http://localhost:3000/onboarding/generated_token_here",
+        "email": "candidate@example.com",
+        "draftId": "DRAFT-1234567890-abcd"
+      }
+    },
+    {
+      "name": "2. Validate Link & Get Progress",
+      "method": "GET",
+      "url": "http://localhost:5000/api/onboarding-link/validate/{TOKEN}",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "note": "Replace {TOKEN} with actual token from step 1",
+      "expectedResponse": {
+        "success": true,
+        "message": "Link is valid",
+        "isExpired": false,
+        "progress": {
+          "personal": { "completed": false, "completedAt": null },
+          "pf": { "completed": false, "completedAt": null },
+          "academic": { "completed": false, "completedAt": null },
+          "experience": { "completed": false, "completedAt": null },
+          "family": { "completed": false, "completedAt": null },
+          "declaration": { "completed": false, "completedAt": null },
+          "isFullyCompleted": false,
+          "currentSection": "personal",
+          "completionPercentage": 0,
+          "nextSection": "personal"
+        },
+        "draftId": "DRAFT-1234567890-abcd",
+        "email": "candidate@example.com"
+      }
+    },
+    {
+      "name": "3. Save Personal Section",
+      "method": "POST",
+      "url": "http://localhost:5000/api/onboarding-link/save/{TOKEN}/personal",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "email": "candidate@example.com",
+        "firstName": "JOHN",
+        "lastName": "DOE",
+        "dateOfBirth": "1995-05-15",
+        "age": 28,
+        "placeOfBirth": "Mumbai",
+        "state": "Maharashtra",
+        "district": "Mumbai",
+        "nationality": "Indian",
+        "religion": "Hindu",
+        "bloodGroup": "O+",
+        "gender": "Male",
+        "maritalStatus": "Single",
+        "presentAddress": "123 Main Street, Apartment 4B",
+        "presentCity": "Mumbai",
+        "presentState": "Maharashtra",
+        "presentPhone": "9876543210",
+        "presentPincode": "400001",
+        "permanentAddress": "123 Main Street, Apartment 4B",
+        "permanentCity": "Mumbai",
+        "permanentState": "Maharashtra",
+        "permanentPhone": "9876543210",
+        "permanentPincode": "400001",
+        "aadhaar": "123456789012",
+        "pan": "ABCDE1234F",
+        "drivingLicense": "MH01-20230001234"
+      },
+      "expectedResponse": {
+        "success": true,
+        "message": "personal section saved successfully",
+        "section": "personal",
+        "completed": true,
+        "nextSection": "pf",
+        "completionPercentage": 17
+      }
+    },
+    {
+      "name": "4. Save PF Section",
+      "method": "POST",
+      "url": "http://localhost:5000/api/onboarding-link/save/{TOKEN}/pf",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "pfNumber": "MH/MUM/1234567/000/0001234",
+        "uanNumber": "123456789012",
+        "previousPfNumber": "",
+        "previousUanNumber": "",
+        "nomineeDetails": [
+          {
+            "name": "Jane Doe",
+            "relationship": "Sister",
+            "dateOfBirth": "1998-03-20",
+            "percentage": 100
+          }
+        ]
+      },
+      "expectedResponse": {
+        "success": true,
+        "message": "pf section saved successfully",
+        "section": "pf",
+        "completed": true,
+        "nextSection": "academic",
+        "completionPercentage": 33
+      }
+    },
+    {
+      "name": "5. Save Academic Section",
+      "method": "POST",
+      "url": "http://localhost:5000/api/onboarding-link/save/{TOKEN}/academic",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "qualifications": [
+          {
+            "degree": "10th",
+            "board": "CBSE",
+            "institution": "ABC School",
+            "yearOfPassing": "2010",
+            "percentage": 85.5,
+            "specialization": ""
+          },
+          {
+            "degree": "12th",
+            "board": "CBSE",
+            "institution": "XYZ School",
+            "yearOfPassing": "2012",
+            "percentage": 88.0,
+            "specialization": "Science"
+          },
+          {
+            "degree": "B.Tech",
+            "board": "Mumbai University",
+            "institution": "Engineering College",
+            "yearOfPassing": "2016",
+            "percentage": 75.5,
+            "specialization": "Computer Science"
+          }
+        ]
+      },
+      "expectedResponse": {
+        "success": true,
+        "message": "academic section saved successfully",
+        "section": "academic",
+        "completed": true,
+        "nextSection": "experience",
+        "completionPercentage": 50
+      }
+    },
+    {
+      "name": "6. Save Experience Section",
+      "method": "POST",
+      "url": "http://localhost:5000/api/onboarding-link/save/{TOKEN}/experience",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "experiences": [
+          {
+            "companyName": "Tech Solutions Pvt Ltd",
+            "designation": "Software Developer",
+            "fromDate": "2016-07-01",
+            "toDate": "2019-12-31",
+            "ctc": "500000",
+            "reasonForLeaving": "Better opportunity"
+          },
+          {
+            "companyName": "Digital Innovations Inc",
+            "designation": "Senior Developer",
+            "fromDate": "2020-01-15",
+            "toDate": "2023-06-30",
+            "ctc": "800000",
+            "reasonForLeaving": "Career growth"
+          }
+        ]
+      },
+      "expectedResponse": {
+        "success": true,
+        "message": "experience section saved successfully",
+        "section": "experience",
+        "completed": true,
+        "nextSection": "family",
+        "completionPercentage": 67
+      }
+    },
+    {
+      "name": "7. Save Family Section",
+      "method": "POST",
+      "url": "http://localhost:5000/api/onboarding-link/save/{TOKEN}/family",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "familyMembers": [
+          {
+            "name": "Robert Doe",
+            "relationship": "Father",
+            "dateOfBirth": "1965-08-10",
+            "occupation": "Business",
+            "contactNumber": "9876543211"
+          },
+          {
+            "name": "Mary Doe",
+            "relationship": "Mother",
+            "dateOfBirth": "1968-12-25",
+            "occupation": "Homemaker",
+            "contactNumber": "9876543212"
+          },
+          {
+            "name": "Jane Doe",
+            "relationship": "Sister",
+            "dateOfBirth": "1998-03-20",
+            "occupation": "Student",
+            "contactNumber": "9876543213"
+          }
+        ]
+      },
+      "expectedResponse": {
+        "success": true,
+        "message": "family section saved successfully",
+        "section": "family",
+        "completed": true,
+        "nextSection": "declaration",
+        "completionPercentage": 83
+      }
+    },
+    {
+      "name": "8. Submit Declaration (Final - Expires Link)",
+      "method": "POST",
+      "url": "http://localhost:5000/api/onboarding-link/submit-declaration/{TOKEN}",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "body": {
+        "keepOriginalCertificates": true,
+        "willingServiceAgreement": true,
+        "willingToWorkAnywhere": true,
+        "agreeCompanyTerms": true,
+        "doYouSmoke": false,
+        "areYouAlcoholic": false,
+        "medicallyFit": true,
+        "convictedInCourt": false,
+        "convictedRemarks": "",
+        "haveProfessionalMembership": false,
+        "membershipDetails": "",
+        "declarationName": "John Doe",
+        "declarationDate": "2024-01-15"
+      },
+      "expectedResponse": {
+        "success": true,
+        "message": "Onboarding completed successfully! Your link has been expired.",
+        "isFullyCompleted": true,
+        "completionPercentage": 100,
+        "submittedAt": "2024-01-15T12:00:00.000Z",
+        "draftId": "DRAFT-1234567890-abcd"
+      }
+    },
+    {
+      "name": "9. Validate Expired Link",
+      "method": "GET",
+      "url": "http://localhost:5000/api/onboarding-link/validate/{TOKEN}",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "note": "Use same token after declaration submission",
+      "expectedResponse": {
+        "success": false,
+        "message": "This onboarding link has expired. Your onboarding is complete.",
+        "isExpired": true
+      }
+    },
+    {
+      "name": "10. Get Progress",
+      "method": "GET",
+      "url": "http://localhost:5000/api/onboarding-link/progress/{TOKEN}",
+      "headers": {
+        "Content-Type": "application/json"
+      },
+      "expectedResponse": {
+        "success": true,
+        "progress": {
+          "personal": { "completed": true, "completedAt": "2024-01-15T10:00:00.000Z" },
+          "pf": { "completed": true, "completedAt": "2024-01-15T10:15:00.000Z" },
+          "academic": { "completed": true, "completedAt": "2024-01-15T10:30:00.000Z" },
+          "experience": { "completed": true, "completedAt": "2024-01-15T10:45:00.000Z" },
+          "family": { "completed": true, "completedAt": "2024-01-15T11:00:00.000Z" },
+          "declaration": { "completed": true, "completedAt": "2024-01-15T11:15:00.000Z" },
+          "isFullyCompleted": true,
+          "currentSection": "declaration",
+          "completionPercentage": 100,
+          "nextSection": null
+        },
+        "isExpired": true,
+        "email": "candidate@example.com",
+        "draftId": "DRAFT-1234567890-abcd"
+      }
+    },
+    {
+      "name": "11. Get All Onboarding Links (Admin)",
+      "method": "GET",
+      "url": "http://localhost:5000/api/onboarding-link/all?page=1&limit=10&status=active",
+      "headers": {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer YOUR_ADMIN_TOKEN_HERE"
+      },
+      "queryParams": {
+        "page": "1",
+        "limit": "10",
+        "status": "active (or expired or all)"
+      },
+      "expectedResponse": {
+        "success": true,
+        "page": 1,
+        "limit": 10,
+        "total": 5,
+        "totalPages": 1,
+        "data": [
+          {
+            "_id": "...",
+            "email": "candidate@example.com",
+            "token": "...",
+            "isExpired": false,
+            "createdAt": "2024-01-15T09:00:00.000Z",
+            "generatedBy": {
+              "name": "HR Admin",
+              "email": "hr@company.com"
+            },
+            "progress": {
+              "completionPercentage": 67,
+              "currentSection": "family",
+              "isFullyCompleted": false
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "testingFlow": {
+    "step1": "Generate link using endpoint 1",
+    "step2": "Copy the token from response",
+    "step3": "Validate link using endpoint 2 (replace {TOKEN})",
+    "step4": "Save sections 3-7 one by one",
+    "step5": "Submit declaration using endpoint 8",
+    "step6": "Try validating again - should show expired",
+    "step7": "Check admin dashboard using endpoint 11"
+  },
+  "notes": {
+    "authentication": "Admin endpoints require Bearer token in Authorization header",
+    "tokenReplacement": "Replace {TOKEN} in URLs with actual token from generate endpoint",
+    "partialSave": "You can save sections in any order, but declaration requires all others complete",
+    "resume": "Close and reopen - use validate endpoint to get existing progress"
+  }
+}
