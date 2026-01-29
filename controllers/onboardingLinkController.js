@@ -36,8 +36,8 @@ exports.generateOnboardingLink = async (req, res) => {
 
     if (existingLink) {
       // Return existing active link
-      const baseUrl = process.env.PUBLIC_WEB_URL || "https://offer-documentation.onrender.com";
-      const onboardingUrl = `${baseUrl}/api/onboarding/${existingLink.token}`;
+      const baseUrl = process.env.PUBLIC_WEB_URL || "https://offer-documentation.onrender.com" || "http://localhost:3000";
+      const onboardingUrl = `${baseUrl}/onboarding/${existingLink.token}`;
 
       return res.status(200).json({
         success: true,
@@ -84,8 +84,8 @@ exports.generateOnboardingLink = async (req, res) => {
     });
 
     // Construct onboarding URL
-    const baseUrl = process.env.PUBLIC_WEB_URL || "https://offer-documentation.onrender.com";
-    const onboardingUrl = `${baseUrl}/api/onboarding/${token}`;
+    const baseUrl = process.env.PUBLIC_WEB_URL || "https://offer-documentation.onrender.com" || "http://localhost:3000";
+    const onboardingUrl = `${baseUrl}/onboarding/${token}`;
 
     // Send email with onboarding link
     try {
