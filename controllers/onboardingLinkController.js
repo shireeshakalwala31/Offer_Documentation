@@ -65,19 +65,24 @@ exports.generateOnboardingLink = async (req, res) => {
         url: `${baseUrl}/onboarding/${existingLink.token}`,
         email: existingLink.email,
         firstName: existingLink.firstName,
-        lastName: existingLink.lastName
+        lastName: existingLink.lastName,
+        password: existingLink.password
       });
     }
 
     // Generate token
     const token = crypto.randomBytes(32).toString("hex");
+    
+    // Generate one-time password (6 alphanumeric characters)
+    const password = crypto.randomBytes(4).toString("hex").substring(0, 8).toUpperCase();
 
-    // Create link
+    // Create link with auto-generated password
     await OnboardingLink.create({
       email,
       firstName,
       lastName,
       token,
+      password,
       isExpired: false,
       generatedBy: req.admin?._id || null,
       expiresAt: null
@@ -102,16 +107,32 @@ exports.generateOnboardingLink = async (req, res) => {
 
     const onboardingUrl = `${baseUrl}/onboarding/${token}`;
 
-    // Send email (non-blocking)
+    // Send email with password (non-blocking)
     try {
       await sendEmail({
         to: email,
-        subject: "Complete Your Onboarding",
+        subject: "Your Onboarding Link & Login Credentials",
         html: `
           <p>Dear ${firstName} ${lastName},</p>
-          <p>Please complete your onboarding using the link below:</p>
-          <a href="${onboardingUrl}">${onboardingUrl}</a>
-          <p>This link expires only after final submission.</p>
+          <p>Your onboarding has been initiated. Please use the following credentials to access your onboarding:</p>
+          
+          <h3>Onboarding Link:</h3>
+          <a href="${onboardingUrl}" style="color: #1976d2; text-decoration: none; font-weight: bold;">
+            ${onboardingUrl}
+          </a>
+          
+          <h3>Login Credentials:</h3>
+          <p>
+            <strong>Email:</strong> ${email}<br>
+            <strong>Password:</strong> <code style="background: #f0f0f0; padding: 5px; font-family: monospace;">${password}</code>
+          </p>
+          
+          <p style="color: #666; font-size: 12px;">
+            This link remains active until you complete all sections of the onboarding form.
+            You can save your progress and resume later.
+          </p>
+          
+          <p>Best regards,<br>HR Team</p>
         `
       });
     } catch (err) {
@@ -126,9 +147,10 @@ exports.generateOnboardingLink = async (req, res) => {
       email,
       firstName,
       lastName,
-      draftId
+      password,
+      draftId,
+      instructions: "Share the URL and password with the candidate via email"
     });
-
   } catch (error) {
     console.error("Generate Link Error:", error);
     return res.status(500).json({
@@ -512,7 +534,7 @@ exports.getAllOnboardingLinks = async (req, res) => {
 };
 
 // ============================================
-// 7. EMPLOYEE LOGIN FOR ONBOARDING
+// 7. EMPLOYEE LOGIN (SIMPLE PASSWORD VALIDATION)
 // ============================================
 exports.employeeLoginOrRegister = async (req, res) => {
   try {
@@ -537,7 +559,7 @@ exports.employeeLoginOrRegister = async (req, res) => {
     if (link.isExpired) {
       return res.status(400).json({
         success: false,
-        message: "This onboarding link has expired"
+        message: "This onboarding link has expired. Please contact HR."
       });
     }
 
@@ -549,37 +571,20 @@ exports.employeeLoginOrRegister = async (req, res) => {
       });
     }
 
-    // Check if employee user already exists
-    let employee = await EmployeeUser.findOne({ email: email.toLowerCase().trim() }).select("+password");
-
-    if (employee) {
-      // LOGIN: Employee already exists, verify password
-      const isPasswordValid = await bcrypt.compare(password, employee.password);
-      if (!isPasswordValid) {
-        return res.status(401).json({
-          success: false,
-          message: "Invalid password"
-        });
-      }
-    } else {
-      // REGISTER: Create new employee user
-      const hashedPassword = await bcrypt.hash(password, 10);
-
-      employee = await EmployeeUser.create({
-        firstName: link.firstName,
-        lastName: link.lastName,
-        email: email.toLowerCase().trim(),
-        password: hashedPassword,
-        role: "employee"
+    // Validate password - simple string comparison
+    if (password !== link.password) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid password. Please check the password sent to your email."
       });
     }
 
-    // Generate JWT token
+    // Password is correct - generate JWT token for this session
     const jwtToken = jwt.sign(
       {
-        id: employee._id,
-        role: "employee",
-        email: employee.email
+        token: token,
+        email: email,
+        role: "onboarding"
       },
       process.env.JWT_SECRET,
       { expiresIn: "7d" }
@@ -587,14 +592,12 @@ exports.employeeLoginOrRegister = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: employee ? "Login successful" : "Registration and login successful",
+      message: "Login successful",
       token: jwtToken,
-      employee: {
-        id: employee._id,
-        firstName: employee.firstName,
-        lastName: employee.lastName,
-        email: employee.email,
-        role: employee.role
+      candidate: {
+        email: link.email,
+        firstName: link.firstName,
+        lastName: link.lastName
       },
       onboardingToken: token
     });
@@ -603,7 +606,7 @@ exports.employeeLoginOrRegister = async (req, res) => {
     console.error("Employee Login Error:", error);
     return res.status(500).json({
       success: false,
-      message: "Failed to login or register",
+      message: "Failed to login",
       error: error.message
     });
   }

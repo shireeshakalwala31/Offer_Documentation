@@ -29,6 +29,12 @@ const onboardingLinkSchema = new mongoose.Schema(
       index: true
     },
 
+    // One-time password for login (auto-generated)
+    password: {
+      type: String,
+      required: true
+    },
+
     isExpired: {
       type: Boolean,
       default: false
