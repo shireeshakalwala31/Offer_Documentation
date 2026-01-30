@@ -1031,7 +1031,7 @@ function renderAttachmentBlock(doc, label, attachment, candidate, sectionKey) {
 
   const baseUrl =
     process.env.PUBLIC_WEB_URL ||
-    "https://offer-documentation.onrender.com";
+    "PUBLIC_WEB_URL=https://offer-documentation-frontend.onrender.com";
 
   const id = candidate.draftId || candidate._id;
 
@@ -1133,7 +1133,7 @@ exports.downloadCandidatePDF = async (req, res) => {
     function buildDownloadUrl(sectionKey, fileName) {
   const baseUrl =
     process.env.PUBLIC_WEB_URL ||
-    "https://offer-documentation.onrender.com";
+    "PUBLIC_WEB_URL=https://offer-documentation-frontend.onrender.com";
 
   const cid = candidate.draftId || candidate._id;
 

@@ -38,7 +38,7 @@ exports.verifyToken = async (req, res, next) => {
 
 // Admin Only
 exports.adminOnly = (req, res, next) => {
-  if (req.role === "admin") return next();
+  if (req.role === "admin" || req.role === "superAdmin") return next();
   return res.status(403).json({ message: "Access denied: Admin only" });
 };
 
