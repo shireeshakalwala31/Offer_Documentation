@@ -10,6 +10,23 @@ const TempFamily = require("../models/onboarding/TempFamily");
 const TempDeclaration = require("../models/onboarding/TempDeclaration");
 const { sendEmail } = require("../services/emailService");
 
+/**
+ * Helper: Get clean frontend base URL
+ */
+function getFrontendBaseUrl(res) {
+  const baseUrl = process.env.PUBLIC_WEB_URL?.trim();
+
+  if (!baseUrl) {
+    res.status(500).json({
+      success: false,
+      message: "PUBLIC_WEB_URL is missing in backend environment"
+    });
+    return null;
+  }
+
+  return baseUrl;
+}
+
 // ============================================
 // 1. GENERATE ONBOARDING LINK
 // ============================================
@@ -18,10 +35,7 @@ exports.generateOnboardingLink = async (req, res) => {
     const { email, firstName, lastName } = req.body;
 
     if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: "Email is required"
-      });
+      return res.status(400).json({ success: false, message: "Email is required" });
     }
 
     if (!firstName || !lastName) {
@@ -31,43 +45,44 @@ exports.generateOnboardingLink = async (req, res) => {
       });
     }
 
-    // Check if link already exists for this email
-    let existingLink = await OnboardingLink.findOne({ email, isExpired: false });
+    const baseUrl = getFrontendBaseUrl(res);
+    if (!baseUrl) return;
+
+    // Check for existing active link
+    const existingLink = await OnboardingLink.findOne({
+      email,
+      isExpired: false
+    });
 
     if (existingLink) {
-      // Return existing active link
-      const baseUrl = process.env.PUBLIC_WEB_URL;
-      const onboardingUrl = `${baseUrl}/onboarding/${existingLink.token}`;
-
       return res.status(200).json({
         success: true,
         message: "Active onboarding link already exists for this email",
         token: existingLink.token,
-        url: onboardingUrl,
+        url: `${baseUrl}/onboarding/${existingLink.token}`,
         email: existingLink.email,
         firstName: existingLink.firstName,
         lastName: existingLink.lastName
       });
     }
 
-    // Generate unique token
+    // Generate token
     const token = crypto.randomBytes(32).toString("hex");
 
-    // Create new link
-    const newLink = await OnboardingLink.create({
+    // Create link
+    await OnboardingLink.create({
       email,
       firstName,
       lastName,
       token,
       isExpired: false,
       generatedBy: req.admin?._id || null,
-      expiresAt: null // Will expire only when declaration is submitted
+      expiresAt: null
     });
 
-    // Generate draftId for this candidate
+    // Create draft
     const draftId = `DRAFT-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
 
-    // Create progress tracker
     await OnboardingProgress.create({
       token,
       draftId,
@@ -77,51 +92,27 @@ exports.generateOnboardingLink = async (req, res) => {
       currentSection: "personal"
     });
 
-    // Create EmployeeMaster record
     await EmployeeMaster.create({
       draftId,
       status: "draft"
     });
 
-    // Construct onboarding URL
-    // Construct onboarding URL (FRONTEND URL)
-const baseUrl = process.env.PUBLIC_WEB_URL;
-const onboardingUrl = `${baseUrl}/onboarding/${token}`;
+    const onboardingUrl = `${baseUrl}/onboarding/${token}`;
 
-
-    // Send email with onboarding link
+    // Send email (non-blocking)
     try {
       await sendEmail({
         to: email,
-        subject: "Complete Your Onboarding - Action Required",
+        subject: "Complete Your Onboarding",
         html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h2 style="color: #333;">Welcome to Our Organization!</h2>
-            <p>Dear ${firstName} ${lastName},</p>
-            <p>Congratulations! We are excited to have you join our team.</p>
-            <p>Please complete your onboarding process by clicking the link below:</p>
-            <div style="margin: 30px 0;">
-              <a href="${onboardingUrl}" 
-                 style="background-color: #007bff; color: white; padding: 12px 30px; 
-                        text-decoration: none; border-radius: 5px; display: inline-block;">
-                Start Onboarding
-              </a>
-            </div>
-            <p><strong>Important:</strong></p>
-            <ul>
-              <li>This link is unique to you and should not be shared</li>
-              <li>You can save your progress and return anytime</li>
-              <li>The link will expire only after you complete all sections</li>
-              <li>Please complete all 6 sections: Personal, PF, Academic, Experience, Family, and Declaration</li>
-            </ul>
-            <p>If you have any questions, please contact HR.</p>
-            <p>Best regards,<br/>HR Team</p>
-          </div>
+          <p>Dear ${firstName} ${lastName},</p>
+          <p>Please complete your onboarding using the link below:</p>
+          <a href="${onboardingUrl}">${onboardingUrl}</a>
+          <p>This link expires only after final submission.</p>
         `
       });
-    } catch (emailError) {
-      console.error("Email sending failed:", emailError);
-      // Don't fail the request if email fails
+    } catch (err) {
+      console.error("Email failed:", err.message);
     }
 
     return res.status(201).json({
@@ -152,46 +143,24 @@ exports.validateLink = async (req, res) => {
   try {
     const { token } = req.params;
 
-    if (!token) {
-      return res.status(400).json({
-        success: false,
-        message: "Token is required"
-      });
-    }
-
-    // Check if link exists and is not expired
     const link = await OnboardingLink.findOne({ token });
-
     if (!link) {
-      return res.status(404).json({
-        success: false,
-        message: "Invalid onboarding link"
-      });
+      return res.status(404).json({ success: false, message: "Invalid onboarding link" });
     }
 
     if (link.isExpired) {
       return res.status(400).json({
         success: false,
-        message: "This onboarding link has expired. Your onboarding is complete.",
+        message: "This onboarding link has expired",
         isExpired: true
       });
     }
 
-    // Get progress
-    let progress = await OnboardingProgress.findOne({ token });
-
+    const progress = await OnboardingProgress.findOne({ token });
     if (!progress) {
-      // Create progress if doesn't exist (shouldn't happen, but safety check)
-      const draftId = `DRAFT-${Date.now()}-${crypto.randomBytes(4).toString("hex")}`;
-      progress = await OnboardingProgress.create({
-        token,
-        draftId,
-        email: link.email,
-        currentSection: "personal"
-      });
+      return res.status(404).json({ success: false, message: "Progress not found" });
     }
 
-    // Get existing data from temp collections
     const existingData = {
       personal: await TempPersonal.findOne({ draftId: progress.draftId }),
       pf: await TempPF.findOne({ draftId: progress.draftId }),
@@ -203,22 +172,14 @@ exports.validateLink = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Link is valid",
       isExpired: false,
+      draftId: progress.draftId,
+      email: link.email,
       progress: {
-        personal: progress.personal,
-        pf: progress.pf,
-        academic: progress.academic,
-        experience: progress.experience,
-        family: progress.family,
-        declaration: progress.declaration,
-        isFullyCompleted: progress.isFullyCompleted,
-        currentSection: progress.currentSection,
+        ...progress.toObject(),
         completionPercentage: progress.getCompletionPercentage(),
         nextSection: progress.getNextSection()
       },
-      draftId: progress.draftId,
-      email: link.email,
       existingData
     });
 
@@ -231,6 +192,7 @@ exports.validateLink = async (req, res) => {
     });
   }
 };
+
 
 // ============================================
 // 3. SAVE SECTION (PARTIAL SAVE)
