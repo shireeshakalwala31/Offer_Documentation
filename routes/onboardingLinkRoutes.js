@@ -8,7 +8,9 @@ const {
   saveSection,
   submitDeclaration,
   getProgress,
-  getAllOnboardingLinks
+  getAllOnboardingLinks,
+  employeeLoginOrRegister,
+  validateOnboardingToken
 } = require("../controllers/onboardingLinkController");
 
 // ============================================
@@ -42,6 +44,27 @@ router.get(
 // ============================================
 // PUBLIC ROUTES (Token-based access)
 // ============================================
+
+/**
+ * @route   GET /api/onboarding-link/check/:token
+ * @desc    Check if onboarding token is valid (NO LOGIN REQUIRED)
+ * @access  Public
+ */
+router.get(
+  "/check/:token",
+  validateOnboardingToken
+);
+
+/**
+ * @route   POST /api/onboarding-link/login
+ * @desc    Employee login or register for onboarding
+ * @access  Public
+ * @body    { token, email, password }
+ */
+router.post(
+  "/login",
+  employeeLoginOrRegister
+);
 
 /**
  * @route   GET /api/onboarding-link/validate/:token

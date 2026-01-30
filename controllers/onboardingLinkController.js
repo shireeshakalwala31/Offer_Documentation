@@ -1,7 +1,10 @@
 const crypto = require("crypto");
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
 const OnboardingLink = require("../models/OnboardingLink");
 const OnboardingProgress = require("../models/OnboardingProgress");
 const EmployeeMaster = require("../models/onboarding/EmployeeMaster");
+const EmployeeUser = require("../models/onboarding/EmployeeUser");
 const TempPersonal = require("../models/onboarding/TempPersonal");
 const TempPF = require("../models/onboarding/TempPF");
 const TempAcademic = require("../models/onboarding/TempAcademic");
@@ -504,6 +507,152 @@ exports.getAllOnboardingLinks = async (req, res) => {
       success: false,
       message: "Failed to fetch onboarding links",
       error: error.message
+    });
+  }
+};
+
+// ============================================
+// 7. EMPLOYEE LOGIN FOR ONBOARDING
+// ============================================
+exports.employeeLoginOrRegister = async (req, res) => {
+  try {
+    const { token, email, password } = req.body;
+
+    if (!token || !email || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Token, email, and password are required"
+      });
+    }
+
+    // Validate onboarding link
+    const link = await OnboardingLink.findOne({ token });
+    if (!link) {
+      return res.status(404).json({
+        success: false,
+        message: "Invalid onboarding link"
+      });
+    }
+
+    if (link.isExpired) {
+      return res.status(400).json({
+        success: false,
+        message: "This onboarding link has expired"
+      });
+    }
+
+    // Email must match the link
+    if (email.toLowerCase().trim() !== link.email.toLowerCase().trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Email does not match the onboarding link"
+      });
+    }
+
+    // Check if employee user already exists
+    let employee = await EmployeeUser.findOne({ email: email.toLowerCase().trim() }).select("+password");
+
+    if (employee) {
+      // LOGIN: Employee already exists, verify password
+      const isPasswordValid = await bcrypt.compare(password, employee.password);
+      if (!isPasswordValid) {
+        return res.status(401).json({
+          success: false,
+          message: "Invalid password"
+        });
+      }
+    } else {
+      // REGISTER: Create new employee user
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      employee = await EmployeeUser.create({
+        firstName: link.firstName,
+        lastName: link.lastName,
+        email: email.toLowerCase().trim(),
+        password: hashedPassword,
+        role: "employee"
+      });
+    }
+
+    // Generate JWT token
+    const jwtToken = jwt.sign(
+      {
+        id: employee._id,
+        role: "employee",
+        email: employee.email
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: employee ? "Login successful" : "Registration and login successful",
+      token: jwtToken,
+      employee: {
+        id: employee._id,
+        firstName: employee.firstName,
+        lastName: employee.lastName,
+        email: employee.email,
+        role: employee.role
+      },
+      onboardingToken: token
+    });
+
+  } catch (error) {
+    console.error("Employee Login Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to login or register",
+      error: error.message
+    });
+  }
+};
+
+// ============================================
+// 8. VALIDATE ONBOARDING TOKEN (NO AUTH REQUIRED)
+// ============================================
+exports.validateOnboardingToken = async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    // Check if onboarding link exists and is valid
+    const link = await OnboardingLink.findOne({ token });
+    if (!link) {
+      return res.status(404).json({
+        success: false,
+        message: "Invalid onboarding link",
+        isValid: false
+      });
+    }
+
+    if (link.isExpired) {
+      return res.status(400).json({
+        success: false,
+        message: "This onboarding link has expired",
+        isValid: false,
+        isExpired: true
+      });
+    }
+
+    // Return link info without requiring login
+    return res.status(200).json({
+      success: true,
+      isValid: true,
+      isExpired: false,
+      email: link.email,
+      firstName: link.firstName,
+      lastName: link.lastName,
+      message: "Please login to continue with onboarding"
+    });
+
+  } catch (error) {
+    console.error("Validate Token Error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to validate token",
+      error: error.message,
+      isValid: false
     });
   }
 };
