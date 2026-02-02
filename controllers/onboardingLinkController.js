@@ -80,7 +80,7 @@ if (!frontendUrl) return;
         success: true,
         message: "Active onboarding link already exists for this email",
         token: existingLink.token,
-        url: `${frontendUrl}/onboarding/${existingLink.token}`,
+        url: `${frontendUrl}/onboarding/${existingLink.token}/login`,
         email: existingLink.email,
         firstName: existingLink.firstName,
         lastName: existingLink.lastName,
@@ -123,7 +123,8 @@ if (!frontendUrl) return;
       status: "draft"
     });
 
-    const onboardingUrl = `${frontendUrl}/onboarding/${token}`;
+    const onboardingUrl = `${frontendUrl}/onboarding/${token}/login`;
+
 
 
     // Send email with password (non-blocking)
