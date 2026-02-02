@@ -1,6 +1,7 @@
 // utils/emailService.js
 const sgMail = require("@sendgrid/mail");
 const fs = require("fs");
+const logger = require("../logger/logger");
 
 sgMail.setApiKey(process.env.OfferDocumentation); // ✅ same SendGrid key you already use
 

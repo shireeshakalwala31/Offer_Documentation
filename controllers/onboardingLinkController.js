@@ -11,7 +11,7 @@ const TempAcademic = require("../models/onboarding/TempAcademic");
 const TempExperience = require("../models/onboarding/TempExperience");
 const TempFamily = require("../models/onboarding/TempFamily");
 const TempDeclaration = require("../models/onboarding/TempDeclaration");
-const { sendEmail } = require("../services/emailService");
+const sendEmail = require("../services/emailService");
 
 /**
  * Helper: Get clean frontend base URL
@@ -62,7 +62,7 @@ exports.generateOnboardingLink = async (req, res) => {
         success: true,
         message: "Active onboarding link already exists for this email",
         token: existingLink.token,
-        url: `${baseUrl}/onboarding/${existingLink.token}`,
+        url: `${baseUrl}/onboarding/${existingLink.token}/login`,
         email: existingLink.email,
         firstName: existingLink.firstName,
         lastName: existingLink.lastName,
@@ -105,7 +105,7 @@ exports.generateOnboardingLink = async (req, res) => {
       status: "draft"
     });
 
-    const onboardingUrl = `${baseUrl}/onboarding/${token}`;
+    const onboardingUrl = `${baseUrl}/onboarding/${token}/login`;
 
     // Send email with password (non-blocking)
     try {

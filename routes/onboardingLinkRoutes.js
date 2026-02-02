@@ -56,6 +56,16 @@ router.get(
 );
 
 /**
+ * @route   GET /api/onboarding-link/:token/login
+ * @desc    Get onboarding login page for a token (dynamic route)
+ * @access  Public
+ */
+router.get(
+  "/:token/login",
+  validateOnboardingToken
+);
+
+/**
  * @route   POST /api/onboarding-link/login
  * @desc    Employee login or register for onboarding
  * @access  Public
