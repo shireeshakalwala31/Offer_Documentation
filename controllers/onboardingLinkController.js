@@ -65,8 +65,9 @@ exports.generateOnboardingLink = async (req, res) => {
       });
     }
 
-    const baseUrl = getBackendApiUrl(res);
-    if (!baseUrl) return;
+    const frontendUrl = getFrontendBaseUrl(res);
+if (!frontendUrl) return;
+
 
     // Check for existing active link
     const existingLink = await OnboardingLink.findOne({
@@ -79,7 +80,7 @@ exports.generateOnboardingLink = async (req, res) => {
         success: true,
         message: "Active onboarding link already exists for this email",
         token: existingLink.token,
-        url: `${baseUrl}/onboarding/${existingLink.token}/login`,
+        url: `${frontendUrl}/onboarding/${existingLink.token}`,
         email: existingLink.email,
         firstName: existingLink.firstName,
         lastName: existingLink.lastName,
@@ -122,7 +123,8 @@ exports.generateOnboardingLink = async (req, res) => {
       status: "draft"
     });
 
-    const onboardingUrl = `${baseUrl}/api/onboarding-link/${token}/login`;
+    const onboardingUrl = `${frontendUrl}/onboarding/${token}`;
+
 
     // Send email with password (non-blocking)
     try {
