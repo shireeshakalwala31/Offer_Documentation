@@ -14,6 +14,23 @@ const TempDeclaration = require("../models/onboarding/TempDeclaration");
 const sendEmail = require("../services/emailService");
 
 /**
+ * Helper: Get clean backend API base URL
+ */
+function getBackendApiUrl(res) {
+  const apiUrl = process.env.BACKEND_API_URL?.trim();
+
+  if (!apiUrl) {
+    res.status(500).json({
+      success: false,
+      message: "BACKEND_API_URL is missing in backend environment"
+    });
+    return null;
+  }
+
+  return apiUrl;
+}
+
+/**
  * Helper: Get clean frontend base URL
  */
 function getFrontendBaseUrl(res) {
@@ -31,7 +48,7 @@ function getFrontendBaseUrl(res) {
 }
 
 // ============================================
-// 1. GENERATE ONBOARDING LINK
+// 1. GENERATE ONBOARDIBACKEND_API_URL=https://offer-documentation.onrender.com
 // ============================================
 exports.generateOnboardingLink = async (req, res) => {
   try {
@@ -48,7 +65,7 @@ exports.generateOnboardingLink = async (req, res) => {
       });
     }
 
-    const baseUrl = getFrontendBaseUrl(res);
+    const baseUrl = getBackendApiUrl(res);
     if (!baseUrl) return;
 
     // Check for existing active link
@@ -105,7 +122,7 @@ exports.generateOnboardingLink = async (req, res) => {
       status: "draft"
     });
 
-    const onboardingUrl = `${baseUrl}/onboarding/${token}/login`;
+    const onboardingUrl = `${baseUrl}/api/onboarding/${token}/login`;
 
     // Send email with password (non-blocking)
     try {
