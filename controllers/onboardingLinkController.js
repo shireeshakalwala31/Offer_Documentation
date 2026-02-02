@@ -122,7 +122,7 @@ exports.generateOnboardingLink = async (req, res) => {
       status: "draft"
     });
 
-    const onboardingUrl = `${baseUrl}/api/onboarding/${token}/login`;
+    const onboardingUrl = `${baseUrl}/api/onboarding-link/${token}/login`;
 
     // Send email with password (non-blocking)
     try {
