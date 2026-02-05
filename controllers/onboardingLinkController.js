@@ -558,7 +558,10 @@ exports.getAllOnboardingLinks = async (req, res) => {
 // ============================================
 exports.employeeLoginOrRegister = async (req, res) => {
   try {
-    const { token, email, password } = req.body;
+    // Accept token from multiple possible fields (token, onboardingToken), and normalize input
+    const token = req.body.token || req.body.onboardingToken || req.headers['x-onboarding-token'] || (req.body.candidate && req.body.candidate.token);
+    const email = (req.body.email || req.body.emailAddress || (req.body.candidate && req.body.candidate.email) || "").toLowerCase().trim();
+    const password = (req.body.password || req.body.pass || "").trim();
 
     if (!token || !email || !password) {
       return res.status(400).json({
@@ -583,16 +586,23 @@ exports.employeeLoginOrRegister = async (req, res) => {
       });
     }
 
-    // Email must match the link
-    if (email.toLowerCase().trim() !== link.email.toLowerCase().trim()) {
+    // Safe debug log to help diagnose mismatches (do NOT log passwords)
+    console.debug("Onboard login attempt", {
+      token: token,
+      emailProvided: email,
+      linkEmail: link.email
+    });
+
+    // Email must match the link (case-insensitive, trimmed)
+    if (email !== link.email.toLowerCase().trim()) {
       return res.status(400).json({
         success: false,
         message: "Email does not match the onboarding link"
       });
     }
 
-    // Validate password - simple string comparison
-    if (password !== link.password) {
+    // Validate password - allow trimmed comparison
+    if (password !== (link.password || "").trim()) {
       return res.status(401).json({
         success: false,
         message: "Invalid password. Please check the password sent to your email."
@@ -610,6 +620,11 @@ exports.employeeLoginOrRegister = async (req, res) => {
       { expiresIn: "7d" }
     );
 
+    // Provide frontend redirect URLs to make it easy for clients to navigate after login
+    const frontendUrl = getFrontendBaseUrl(res);
+    const onboardingUrl = frontendUrl ? `${frontendUrl}/onboarding/${token}` : null;
+    const onboardingStartUrl = frontendUrl ? `${frontendUrl}/onboarding/${token}/personal` : null;
+
     return res.status(200).json({
       success: true,
       message: "Login successful",
@@ -619,7 +634,9 @@ exports.employeeLoginOrRegister = async (req, res) => {
         firstName: link.firstName,
         lastName: link.lastName
       },
-      onboardingToken: token
+      onboardingToken: token,
+      onboardingUrl,
+      onboardingStartUrl
     });
 
   } catch (error) {
