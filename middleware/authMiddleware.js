@@ -20,6 +20,10 @@ exports.verifyToken = async (req, res, next) => {
     } else if (decoded.role === "employee") {
       user = await EmployeeUser.findById(decoded.id).select("-password");
       req.employee = user;
+    } else if (decoded.role === "onboarding") {
+      // For onboarding users, no DB lookup needed, use decoded data
+      user = { email: decoded.email, role: "onboarding" };
+      req.onboarding = user;
     }
 
     if (!user) {
@@ -44,6 +48,6 @@ exports.adminOnly = (req, res, next) => {
 
 // Employee Only
 exports.employeeOnly = (req, res, next) => {
-  if (req.role === "employee") return next();
+  if (req.role === "employee" || req.role === "onboarding") return next();
   return res.status(403).json({ message: "Access denied: Employee only" });
 };
