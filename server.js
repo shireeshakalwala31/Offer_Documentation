@@ -39,15 +39,14 @@ app.use((req, res, next) => {
   next();
 });
 
-// Body parsing
-app.use(express.json({ limit: "20mb" }));
-app.use(express.urlencoded({ limit: "20mb", extended: true }));
-app.use(bodyParser.json({ limit: "20mb" }));
-app.use(bodyParser.urlencoded({ limit: "20mb", extended: true }));
+// Body parsing - Use only ONE approach (not both express AND bodyParser)
+app.use(express.json({ limit: "50mb" }));  // Increased to 50mb
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
 // Static & Logger
 app.use("/assets", express.static(__dirname + "/offer_letter/assets"));
 app.use(loggerMiddleware);
+
 
 // Routes
 const offerRoutes = require("./routes/offerRoutes");
