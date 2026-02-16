@@ -801,7 +801,7 @@ exports.syncFamilyDetails = async (req, res) => {
 };
 
 
-// Step 5: Declaration Sync (FINAL – FIXED)
+// Step 5: Declaration Sync 
 exports.syncDeclarationDetails = async (req, res) => {
   try {
     const { draftId } = req.body;
