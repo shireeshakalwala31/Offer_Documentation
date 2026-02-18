@@ -418,6 +418,16 @@ exports.syncPFInfo = async (req, res) => {
 
   } catch (err) {
     console.error("PF Save Error:", err);
+    
+    // Check for duplicate key error
+    if (err.code === 11000 && err.message.includes('email')) {
+      return res.status(400).json({
+        success: false,
+        message: "A PF record with this email already exists. Please contact support if you believe this is an error.",
+        error: "Duplicate email entry. The email address " + (req.body.email || "") + " is already associated with another PF record.",
+      });
+    }
+    
     return res.status(500).json({
       success: false,
       message: "Failed to save PF details",
