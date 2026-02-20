@@ -303,7 +303,31 @@ exports.saveSection = async (req, res) => {
       Object.assign(record, sectionData);
     }
 
-    await record.save();
+    // Normalize PF email to lowercase (avoids duplicate variations)
+    if (section === "pf" && record.email) {
+      record.email = String(record.email).toLowerCase().trim();
+    }
+
+    // Save with automatic recovery for legacy unique index on temppfs.email
+    try {
+      await record.save();
+    } catch (err) {
+      if (section === "pf" && err && err.code === 11000 && String(err.message || "").includes("email")) {
+        try {
+          // Drop the legacy unique index on PF.email if present, then retry once
+          const indexes = await TempPF.collection.indexes();
+          const emailIdx = indexes.find(i => i.key && i.key.email === 1);
+          if (emailIdx) {
+            await TempPF.collection.dropIndex(emailIdx.name);
+          }
+          await record.save(); // retry after dropping index
+        } catch (inner) {
+          throw inner;
+        }
+      } else {
+        throw err;
+      }
+    }
 
     // Update progress
     progress[section].completed = true;
