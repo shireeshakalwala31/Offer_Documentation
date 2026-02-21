@@ -24,6 +24,7 @@ const AppointmentLetterSchema = new mongoose.Schema(
       type: String,
       required: [true, "Employee name is required"],
       trim: true,
+      maxlength: 100,
     },
     designation: {
       type: String,
