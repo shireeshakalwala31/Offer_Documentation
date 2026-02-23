@@ -2,7 +2,7 @@ const express = require("express");
 const router = express.Router();
 const multer=require("multer")
 const { registerAdmin, loginAdmin,forgotPassword,resetPasswordWithOtp } = require("../controllers/authController");
-const {createOfferLetter,getAllOffers,getOfferById,updateOfferLetter,generatePDF,deleteOfferLetter,downloadOfferLetter,sendOfferLetterEmail,getDraftOffers}=require('../controllers/offerController');
+const {createOfferLetter,getAllOffers,getOfferById,updateOfferLetter,generatePDF,deleteOfferLetter,downloadOfferLetter,sendOfferLetterEmail,getDraftOffers, verifyJwtToken}=require('../controllers/offerController');
 
 const{verifyToken,adminOnly}=require('../middleware/authMiddleware');
 
@@ -15,6 +15,8 @@ router.get("/test", (req, res) => {
 router.post("/login", loginAdmin);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPasswordWithOtp);
+// Public endpoint for frontend to verify JWT token format/validity
+router.get("/verify-token", verifyJwtToken);
 router.post("/create",verifyToken,adminOnly,createOfferLetter);
 router.post('/generate-pdf',verifyToken,adminOnly,generatePDF)
 router.get("/all",verifyToken,adminOnly,getAllOffers)

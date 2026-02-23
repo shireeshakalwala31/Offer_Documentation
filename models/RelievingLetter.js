@@ -1,6 +1,6 @@
 const mongoose=require("mongoose");
 const relivingLetterSchema=new mongoose.Schema({
-    employeeName:{type:String,required:true},
+    employeeName:{type:String,required:true, maxlength: 100},
     designation:{type:String,required:true},
     employeeId :{type:String,required:true, unique: true},
     joiningDate:{type:Date,required:true},

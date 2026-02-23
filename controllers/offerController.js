@@ -15,6 +15,7 @@ const {
   OTHER_ALLOWANCES_PERCENT,
 } = require("../constants/salaryStructure");
 const Messages = require("../MsgConstants/messages");
+const jwt = require("jsonwebtoken");
 
 //
 // ======================== HELPER FUNCTION ========================
@@ -511,5 +512,28 @@ exports.generatePDF = async (req, res) => {
       error: error.message,
       stack: error.stack,
     });
+  }
+};
+
+// Public: verify JWT token validity for frontend
+exports.verifyJwtToken = (req, res) => {
+  try {
+    const header = req.headers.authorization || req.headers.Authorization;
+    if (!header) {
+      return res.status(401).json({ success: false, message: "Token missing" });
+    }
+    const parts = header.split(" ");
+    if (parts.length !== 2 || !/^Bearer$/i.test(parts[0])) {
+      return res.status(401).json({ success: false, message: "Invalid token format" });
+    }
+    const token = parts[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    // minimal safe payload back
+    return res.status(200).json({ success: true, valid: true, role: decoded.role, id: decoded.id || decoded._id, email: decoded.email });
+  } catch (err) {
+    if (err.name === "TokenExpiredError") {
+      return res.status(401).json({ success: false, message: "Token expired" });
+    }
+    return res.status(401).json({ success: false, message: "Invalid token" });
   }
 };
