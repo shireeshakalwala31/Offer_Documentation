@@ -8,15 +8,39 @@ const logger = require('../logger/logger');
 const mongoose=require('mongoose');
 const Messages = require('../MsgConstants/messages');
 
-// Helper function to parse DD-MM-YYYY date format
-const parseDate = (dateString) => {
-    if (!dateString) return null;
-    const parts = dateString.split('-');
-    if (parts.length === 3) {
-        const [day, month, year] = parts;
-        return new Date(`${year}-${month}-${day}`);
-    }
-    return new Date(dateString);
+// Helper: Strict date parser supporting DD-MM-YYYY, DD/MM/YYYY, YYYY-MM-DD, YYYY/MM/DD
+const parseDate = (input) => {
+  if (!input) return null;
+  if (input instanceof Date && !isNaN(input)) return input;
+  const s = String(input).trim();
+
+  const ddmmyyyy = /^(\d{2})[-\/]?(\d{2})[-\/]?(\d{4})$/; // allow - or / separators
+  const yyyymmdd = /^(\d{4})[-\/]?(\d{2})[-\/]?(\d{2})$/;
+
+  let day, month, year;
+  let m;
+  if ((m = s.match(ddmmyyyy))) {
+    day = parseInt(m[1], 10);
+    month = parseInt(m[2], 10);
+    year = parseInt(m[3], 10);
+  } else if ((m = s.match(yyyymmdd))) {
+    year = parseInt(m[1], 10);
+    month = parseInt(m[2], 10);
+    day = parseInt(m[3], 10);
+  } else {
+    return null;
+  }
+
+  // Construct UTC date to avoid timezone shifts
+  const d = new Date(Date.UTC(year, month - 1, day));
+  if (
+    d.getUTCFullYear() !== year ||
+    d.getUTCMonth() !== month - 1 ||
+    d.getUTCDate() !== day
+  ) {
+    return null; // invalid like 31-02-2024
+  }
+  return d;
 };
 
 
@@ -34,13 +58,23 @@ exports.createRelivingLetter=async(req,res)=>{
             return res.status(400).json({ message:Messages.RELIEVING_lETTER.EMPLOYEE_ID_EXIST });
         }
 
+        const jd = parseDate(joiningDate);
+        const rzd = parseDate(resignationDate);
+        const rld = parseDate(relievingDate);
+        if (!jd || !rzd || !rld) {
+            return res.status(400).json({ message: "Invalid date format. Use DD-MM-YYYY or YYYY-MM-DD" });
+        }
+        if (jd > rzd || rzd > rld) {
+            return res.status(400).json({ message: "Date sequence invalid: joiningDate <= resignationDate <= relievingDate is required" });
+        }
+
         const newRelievingLetter=new RelievingLetter({
             employeeName,
             designation,
             employeeId,
-            joiningDate: parseDate(joiningDate),
-            resignationDate: parseDate(resignationDate),
-            relievingDate: parseDate(relievingDate),
+            joiningDate: jd,
+            resignationDate: rzd,
+            relievingDate: rld,
 
         });
         await newRelievingLetter.save();
@@ -127,13 +161,34 @@ exports.updateRelievingLetter=async(req,res)=>{
             return res.status(400).json({message:Messages.RELIEVING_lETTER.RELIEVING_LETTER_ID});
         }
         const{employeeName,designation,employeeId,joiningDate,resignationDate,relievingDate}=req.body;
+
+        let jd, rzd, rld;
+        if (joiningDate !== undefined) {
+            jd = parseDate(joiningDate);
+            if (!jd) {
+                return res.status(400).json({ message: "Invalid joiningDate format. Use DD-MM-YYYY or YYYY-MM-DD" });
+            }
+        }
+        if (resignationDate !== undefined) {
+            rzd = parseDate(resignationDate);
+            if (!rzd) {
+                return res.status(400).json({ message: "Invalid resignationDate format. Use DD-MM-YYYY or YYYY-MM-DD" });
+            }
+        }
+        if (relievingDate !== undefined) {
+            rld = parseDate(relievingDate);
+            if (!rld) {
+                return res.status(400).json({ message: "Invalid relievingDate format. Use DD-MM-YYYY or YYYY-MM-DD" });
+            }
+        }
+
         const updates={
             ...(employeeName &&{employeeName}),
             ...(designation &&{designation}),
             ...(employeeId &&{employeeId}),
-            ...(joiningDate &&{joiningDate: parseDate(joiningDate)}),
-            ...(resignationDate &&{resignationDate: parseDate(resignationDate)}),
-            ...(relievingDate &&{relievingDate: parseDate(relievingDate)}),
+            ...(jd && { joiningDate: jd }),
+            ...(rzd && { resignationDate: rzd }),
+            ...(rld && { relievingDate: rld }),
         };
         const updateLetter=await RelievingLetter.findByIdAndUpdate(id,updates,{
             new:true,
