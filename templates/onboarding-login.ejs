@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Employee Onboarding Login</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            padding: 48px;
+            max-width: 480px;
+            width: 100%;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        .logo {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 16px;
+            font-size: 24px;
+            color: white;
+            font-weight: 600;
+        }
+        h1 {
+            font-size: 28px;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 8px;
+        }
+        .subtitle {
+            color: #666;
+            font-size: 16px;
+        }
+        .error {
+            background: #fee;
+            border: 1px solid #fcc;
+            color: #c33;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            font-size: 14px;
+        }
+        .expired {
+            background: #fef5e7;
+            border: 1px solid #f8c973;
+            color: #c98a00;
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            font-size: 14px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            font-weight: 500;
+            color: #333;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        input {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e1e5e9;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        .password-container {
+            position: relative;
+        }
+        .password-toggle {
+            position: absolute;
+            right: 14px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            color: #667eea;
+            cursor: pointer;
+            font-size: 14px;
+            padding: 4px;
+        }
+        button {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        button:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #ffffff40;
+            border-top: 2px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-right: 8px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .footer {
+            text-align: center;
+            margin-top: 32px;
+            padding-top: 24px;
+            border-top: 1px solid #eee;
+            font-size: 14px;
+            color: #666;
+        }
+        .hidden { display: none; }
+        @media (max-width: 480px) {
+            .container { padding: 32px 24px; }
+            h1 { font-size: 24px; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">👤</div>
+            <h1>Employee Onboarding</h1>
+            <p class="subtitle">Complete your onboarding process</p>
+        </div>
+
+        <% if (typeof linkStatus !== 'undefined') { %>
+            <% if (linkStatus === 'invalid') { %>
+                <div class="error">
+                    ⚠️ Invalid onboarding link. Please contact HR for a new invitation.
+                </div>
+            <% } else if (linkStatus === 'expired') { %>
+                <div class="expired">
+                    ⏰ This onboarding link has expired. Please contact HR for a new invitation.
+                </div>
+            <% } %>
+        <% } %>
+
+        <form id="loginForm" novalidate>
+            <input type="hidden" name="token" value="<%= token %>">
+            
+            <div class="form-group">
+                <label for="email">Email Address</label>
+                <input 
+                    type="email" 
+                    id="email" 
+                    name="email" 
+                    required 
+                    autocomplete="email"
+                    value="<%= email || '' %>"
+                    placeholder="your.email@company.com"
+                >
+            </div>
+
+            <div class="form-group">
+                <label for="password">Password</label>
+                <div class="password-container">
+                    <input 
+                        type="password" 
+                        id="password" 
+                        name="password" 
+                        required 
+                        autocomplete="current-password"
+                        placeholder="Enter your password"
+                    >
+                    <button type="button" class="password-toggle" onclick="togglePassword()">
+                        👁️
+                    </button>
+                </div>
+            </div>
+
+            <button type="submit" id="submitBtn">
+                🔐 Login & Continue Onboarding
+            </button>
+        </form>
+
+        <div class="footer">
+            Need help? Contact your HR representative
+        </div>
+    </div>
+
+    <script>
+        function togglePassword() {
+            const pwd = document.getElementById('password');
+            const toggle = document.querySelector('.password-toggle');
+            if (pwd.type === 'password') {
+                pwd.type = 'text';
+                toggle.innerHTML = '🙈';
+            } else {
+                pwd.type = 'password';
+                toggle.innerHTML = '👁️';
+            }
+        }
+
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const submitBtn = document.getElementById('submitBtn');
+            const originalText = submitBtn.innerHTML;
+            
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="loading"></span>Logging in...';
+            
+            try {
+                const response = await fetch('/api/onboarding-link/login', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Redirect to onboarding dashboard
+                    window.location.href = `/onboarding/<%= token %>`;
+                } else {
+                    alert(data.message || 'Login failed. Please try again.');
+                }
+            } catch (error) {
+                alert('Network error. Please check your connection and try again.');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalText;
+            }
+        });
+    </script>
+</body>
+</html>

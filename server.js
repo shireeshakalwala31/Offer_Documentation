@@ -18,6 +18,11 @@ const app = express();
 const bodyParser = require("body-parser");
 const createDefaultAdmin = require("./seed/adminSeeder");
 const loggerMiddleware = require("./middleware/loggerMiddleware");
+const { validateOnboardingToken } = require("./controllers/onboardingLinkController");
+
+// Set EJS as template engine
+app.set('view engine', 'ejs');
+app.set('views', __dirname + '/templates');
 
 // CORS - Always enable before routes
 app.use(cors());
@@ -45,6 +50,9 @@ app.use(express.urlencoded({ limit: "50mb", extended: true }));
 // Static & Logger
 app.use("/assets", express.static(__dirname + "/offer_letter/assets"));
 app.use(loggerMiddleware);
+
+// Direct onboarding login route (matches generated frontend URLs)
+app.get('/onboarding/:token/login', validateOnboardingToken);
 
 
 // Routes

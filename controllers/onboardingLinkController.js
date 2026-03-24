@@ -682,41 +682,25 @@ exports.validateOnboardingToken = async (req, res) => {
 
     // Check if onboarding link exists and is valid
     const link = await OnboardingLink.findOne({ token });
+    
+    res.locals.token = token;
+    
     if (!link) {
-      return res.status(404).json({
-        success: false,
-        message: "Invalid onboarding link",
-        isValid: false
-      });
+      res.locals.linkStatus = 'invalid';
+    } else if (link.isExpired) {
+      res.locals.linkStatus = 'expired';
+    } else {
+      res.locals.linkStatus = 'valid';
+      res.locals.email = link.email;
     }
-
-    if (link.isExpired) {
-      return res.status(400).json({
-        success: false,
-        message: "This onboarding link has expired",
-        isValid: false,
-        isExpired: true
-      });
-    }
-
-    // Return link info without requiring login
-    return res.status(200).json({
-      success: true,
-      isValid: true,
-      isExpired: false,
-      email: link.email,
-      firstName: link.firstName,
-      lastName: link.lastName,
-      message: "Please login to continue with onboarding"
-    });
+    
+    // Always render login page
+    return res.render('onboarding-login');
 
   } catch (error) {
     console.error("Validate Token Error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to validate token",
-      error: error.message,
-      isValid: false
-    });
+    res.locals.linkStatus = 'error';
+    res.locals.token = token;
+    return res.render('onboarding-login');
   }
 };

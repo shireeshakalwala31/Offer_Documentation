@@ -1,47 +1,44 @@
-# Fix Implementation Plan
+# Onboarding Login 404 Fix - TODO
 
-## Task: Fix API Errors - Token Verification & Relieving Letter PDF Generation
+## Current Status
+✅ Plan approved by user  
+🔄 **Step 1: Create login template** (in progress)
 
-### Issues to Fix:
-1. `/api/offer/verify-token` returning 400 (route doesn't exist)
-2. Token verification failing with generic AxiosError
-3. Relieving letter creation returning 500 (PDF generation failure)
+## Steps to Complete
 
-### Implementation Steps:
+### 1. Create Template ✅ COMPLETE
+- [x] `templates/onboarding-login.ejs`
+  - Standalone HTML login form
+  - POST to `/api/onboarding-link/login`
+  - Handle invalid/expired/valid token states
 
-- [ ] **Step 1**: Add `/verify-token` endpoint to `routes/offerRoutes.js`
-- [ ] **Step 2**: Create verifyToken controller function in `controllers/offerController.js`
-- [ ] **Step 3**: Improve error handling in `middleware/authMiddleware.js`
-- [ ] **Step 4**: Auto-generate PDF after relieving letter creation in `controllers/relievingController.js`
+### 2. Update Controller ✅ COMPLETE
+- [x] `controllers/onboardingLinkController.js`
+  - Modified `validateOnboardingToken`
+  - Renders EJS instead of JSON
+  - Passes status data to template
 
----
+### 2. Update Controller
+- [ ] `controllers/onboardingLinkController.js`
+  - Modify `validateOnboardingToken`
+  - Render EJS instead of JSON
+  - Pass status data to template
 
-## Progress Log:
+### 3. Testing [NEXT]
+- [ ] Generate new onboarding link  
+- [ ] Visit `/onboarding/:token/login` → see HTML login page
+- [ ] Test login form submission
+- [ ] Verify Render deployment
 
-### Step 1: Adding verify-token route
-**File:** routes/offerRoutes.js
-**Status:** Pending
-**Changes:**
-- Add new POST route `/verify-token` 
-- No auth required (public endpoint for frontend token validation)
+### 4. Deploy & Verify
+- [ ] Push to Render
+- [ ] Test production URL
 
-### Step 2: Creating verifyToken controller  
-**File:** controllers/offerController.js
-**Status:** Pending  
-**Changes:**
-- Export new function to validate JWT tokens without requiring admin privileges
+**Status:** Code changes complete! Ready for testing.
+**Next Action:** Test locally
 
-### Step 3: Improving Auth Middleware Error Handling
-**File:** middleware/authMiddleware.js  
-**Status:** Pending
-**Changes:**
-- Return more descriptive error messages for different failure scenarios:
-  - Missing token → "Token missing"
-  - Invalid format → "Invalid token format" 
-  - Expired → "Token expired"
-  - Wrong secret → "Invalid token"
+### 4. Deploy & Verify
+- [ ] Push to Render
+- [ ] Test production URL
 
-### Step auto-generate PDF Option for Relieving Letters**
-This is an optional enhancement where we can add auto-generation of PDFs when creating relieving letters, rather than requiring separate API calls.
-
----
+**Next Action:** Creating `templates/onboarding-login.ejs`
