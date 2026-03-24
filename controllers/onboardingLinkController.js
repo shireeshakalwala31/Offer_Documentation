@@ -684,6 +684,7 @@ exports.validateOnboardingToken = async (req, res) => {
     const link = await OnboardingLink.findOne({ token });
     
     res.locals.token = token;
+    res.locals.backendApiUrl = process.env.BACKEND_API_URL || 'https://offer-documentation.onrender.com';
     
     if (!link) {
       res.locals.linkStatus = 'invalid';
@@ -701,6 +702,7 @@ exports.validateOnboardingToken = async (req, res) => {
     console.error("Validate Token Error:", error);
     res.locals.linkStatus = 'error';
     res.locals.token = token;
+    res.locals.backendApiUrl = process.env.BACKEND_API_URL || 'https://offer-documentation.onrender.com';
     return res.render('onboarding-login');
   }
 };
